@@ -5,7 +5,7 @@ Commands for managing decision receipts:
 - view: Open receipt in browser (converts JSON to HTML automatically)
 - verify: Verify a receipt's artifact hash and cryptographic signature
 - inspect: Display receipt details in terminal
-- export: Export receipt to different formats (html, md, json, sarif, pdf, csv)
+- export: Export receipt to different formats (html, md, json, sarif, pdf, csv, odr)
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ Subcommands:
   view    <file>             Open receipt in browser (JSON auto-converts to HTML)
   verify  <file>             Check artifact hash and signature integrity
   inspect <file>             Display receipt details in terminal
-  export  <file> --format X  Convert between html, md, json, sarif, pdf, csv
+  export  <file> --format X  Convert between html, md, json, sarif, pdf, csv, odr
 
 Examples:
   aragora receipt view receipt.json
@@ -100,6 +100,17 @@ Examples:
     verify_parser = receipt_sub.add_parser(
         "verify",
         help="Verify receipt artifact hash and signature integrity",
+        description=(
+            "Validate a native DecisionReceipt JSON file's integrity (this repo's "
+            "internal receipt record -- for the portable Open Decision Receipt/ODR "
+            "format, use the standalone 'aragora-verify' tool instead). Recomputes "
+            "the SHA-256 decision-integrity hash (artifact_hash) over the "
+            "decision-integrity fields (receipt_id, gauntlet_id, input_hash, "
+            "risk_summary, verdict, confidence) and compares it to the stored value "
+            "to detect tampering of those fields; also confirms the required fields "
+            "(receipt_id, verdict, timestamp, confidence) are present. When the "
+            "receipt carries a cryptographic signature, verifies it too."
+        ),
     )
     verify_parser.add_argument("receipt", help="Path to receipt JSON file")
     verify_parser.add_argument(
@@ -127,6 +138,11 @@ Examples:
         help="Filter by receipt kind",
     )
     list_p.add_argument("--org-id", help="Filter by organization ID")
+    list_p.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a JSON array of receipts (with full ids) instead of a table",
+    )
     list_p.set_defaults(func=cmd_receipt_list)
 
     # --- show ---
@@ -725,6 +741,7 @@ def _export_odr(data: dict[str, Any]) -> str:
         calibration_provenance_for_receipt,
         decision_receipt_to_odr,
         jcs_canonicalize,
+        sign_odr_if_configured,
     )
     from aragora.gauntlet.receipt_models import DecisionReceipt
 
@@ -736,6 +753,7 @@ def _export_odr(data: dict[str, Any]) -> str:
         receipt,
         calibration_provenance=calibration_provenance_for_receipt(receipt),
     )
+    odr = sign_odr_if_configured(odr)
     return jcs_canonicalize(odr).decode("utf-8")
 
 
@@ -760,8 +778,20 @@ def cmd_receipt_export(args: argparse.Namespace) -> None:
     if output_format in ("json",):
         content = json.dumps(data, indent=2, default=str)
     elif output_format == "odr":
+        from aragora.gauntlet.odr_signing import OdrSigningError
+
         try:
             content = _export_odr(data)
+        except OdrSigningError as e:
+            # A configured-but-unusable signing key fails closed upstream;
+            # present it as a clean CLI error, not a traceback.
+            logger.warning("ODR signing failed: %s", e)
+            print(
+                "Error: ODR signing key is configured but could not be used; "
+                "refusing to export an unsigned receipt (see logs)",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         except (ImportError, KeyError, TypeError, ValueError) as e:
             logger.warning("ODR export failed: %s", e)
             print("Error: Could not export receipt as ODR profile", file=sys.stderr)
@@ -813,6 +843,7 @@ def cmd_receipt_list(args: argparse.Namespace) -> None:
     verdict = getattr(args, "verdict", None)
     kind = getattr(args, "kind", None)
     org_id = getattr(args, "org_id", None)
+    json_output = getattr(args, "json", False)
 
     results: list[Any] = []
     storage_error: Exception | None = None
@@ -847,15 +878,19 @@ def cmd_receipt_list(args: argparse.Namespace) -> None:
         results = [meta for meta in results if _receipt_kind(meta) == kind]
 
     if not results:
-        print("No receipts found.")
+        if json_output:
+            print(json.dumps([]))
+        else:
+            print("No receipts found.")
         return
 
-    print(f"{'ID':<14} {'TYPE':<10} {'VERDICT':<12} {'CONF':>6} {'FINDINGS':>8} {'CREATED':<20}")
-    print("-" * 75)
+    # Build the full row set once. The id is always the full, un-truncated
+    # value here — it must be safe to feed straight back into `receipt show`
+    # or `receipt export` (see #9985).
+    rows: list[dict[str, Any]] = []
     for meta in results:
         payload = _receipt_payload_dict(meta)
         row_id = _receipt_row_id(meta)
-        short_id = row_id[:12] + ".." if len(row_id) > 14 else row_id
         receipt_kind = _receipt_kind(meta)
         created = _format_receipt_created_at(getattr(meta, "created_at", None))
         findings = _receipt_findings_count(meta)
@@ -864,10 +899,32 @@ def cmd_receipt_list(args: argparse.Namespace) -> None:
             verdict=getattr(meta, "verdict", None),
             confidence=getattr(meta, "confidence", None),
         )
-        print(
-            f"{short_id:<14} {receipt_kind:<10} {verdict_value:<12} {confidence:>5.0%} {findings:>8} {created:<20}"
+        rows.append(
+            {
+                "id": row_id,
+                "type": receipt_kind,
+                "verdict": verdict_value,
+                "confidence": confidence,
+                "findings": findings,
+                "created": created,
+            }
         )
-    print(f"\n{len(results)} receipt(s) shown.")
+
+    if json_output:
+        print(json.dumps(rows, indent=2, default=str))
+        return
+
+    id_width = max([len("ID")] + [len(row["id"]) for row in rows])
+    print(
+        f"{'ID':<{id_width}} {'TYPE':<10} {'VERDICT':<12} {'CONF':>6} {'FINDINGS':>8} {'CREATED':<20}"
+    )
+    print("-" * (id_width + 61))
+    for row in rows:
+        print(
+            f"{row['id']:<{id_width}} {row['type']:<10} {row['verdict']:<12} "
+            f"{row['confidence']:>5.0%} {row['findings']:>8} {row['created']:<20}"
+        )
+    print(f"\n{len(rows)} receipt(s) shown.")
 
 
 def cmd_receipt_show(args: argparse.Namespace) -> None:

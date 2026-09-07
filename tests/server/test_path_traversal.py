@@ -11,7 +11,7 @@ from unittest.mock import patch
 import tempfile
 import json
 
-from aragora.server.documents import (
+from aragora.documents.parsing import (
     DocumentStore,
     ParsedDocument,
     _validate_doc_id,

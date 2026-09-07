@@ -137,6 +137,8 @@ def test_worker_prompt_is_claim_first_and_scoped() -> None:
     assert "claim_active_agent_lane.py" in prompt
     assert "--lane-id lane-42-sess-42" in prompt
     assert "--release-stale" not in prompt
+    assert "claim command exits non-zero" in prompt
+    assert "yielding: claim blocked" in prompt
     assert "CLAIM-OR-YIELD" in prompt
     assert "#42" in prompt
     assert "codex/lane-42" in prompt

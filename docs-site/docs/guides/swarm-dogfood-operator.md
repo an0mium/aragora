@@ -168,7 +168,7 @@ data = json.load(sys.stdin)
 for run in data.get('runs', []):
     reaped = run.get('reaped_leases', 0)
     if reaped:
-        print(f'Run {run[\"run_id\"]}: reaped \{reaped\} expired leases')
+        print(f'Run {run[\"run_id\"]}: reaped {reaped} expired leases')
 "
 ```
 

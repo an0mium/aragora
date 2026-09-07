@@ -664,9 +664,9 @@ mkdir -p "$BACKUP_DIR"
 for db in agent_elo.db continuum.db consensus_memory.db agent_calibration.db \
          aragora_insights.db agent_personas.db grounded_positions.db genesis.db \
          token_blacklist.db users.db agora_memory.db; do
-    src="${ARAGORA_DATA_DIR:-.nomic}/$\{db\}"
+    src="${ARAGORA_DATA_DIR:-.nomic}/${db}"
     if [ -f "$src" ]; then
-        sqlite3 "$src" ".backup '$BACKUP_DIR/${db%.db}_$\{DATE\}.db'"
+        sqlite3 "$src" ".backup '$BACKUP_DIR/${db%.db}_${DATE}.db'"
         echo "Backed up: $db"
     fi
 done

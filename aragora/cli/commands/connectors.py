@@ -14,9 +14,17 @@ import argparse
 import asyncio
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import httpx
+from aragora._lazy_imports import lazy_module
+
+# Optional runtime dep: imported lazily so the parser can register this
+# command on a base install that lacks httpx (httpx is only needed when a
+# command actually issues an HTTP request).
+if TYPE_CHECKING:  # pragma: no cover - import only for type checkers
+    import httpx
+else:
+    httpx = lazy_module("httpx")
 
 from aragora.config.settings import get_settings
 

@@ -235,9 +235,7 @@ reset_singleton()
 # Basic (compression fallback only)
 pip install aragora
 
-# With TRUE RLM support (recommended)
-pip install aragora[rlm]
-# or
+# With TRUE RLM support (recommended, installs the official `rlm` package)
 pip install rlm
 ```
 

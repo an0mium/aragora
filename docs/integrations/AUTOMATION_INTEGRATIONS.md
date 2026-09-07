@@ -217,7 +217,7 @@ Context here... #ready
 ### Installation
 
 ```bash
-pip install aragora[langchain]
+pip install aragora langchain
 # or
 pip install aragora langchain-core
 ```

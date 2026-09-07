@@ -16,7 +16,7 @@ Aragora supports both SQLite (default) and PostgreSQL backends:
    ```bash
    pip install asyncpg
    # or
-   pip install aragora[postgres]
+   pip install aragora[enterprise]
    ```
 
 ## Configuration

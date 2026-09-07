@@ -724,7 +724,7 @@ class TestUsageExportCSV:
         @contextmanager
         def failing_transaction():
             raise sqlite3.Error("Database locked")
-            yield  # noqa: unreachable
+            yield  # needed for generator syntax
 
         user_store._transaction = failing_transaction
         h = BillingHandler(ctx={"user_store": user_store})
@@ -738,7 +738,7 @@ class TestUsageExportCSV:
         @contextmanager
         def failing_transaction():
             raise OSError("Disk full")
-            yield  # noqa: unreachable
+            yield  # needed for generator syntax
 
         user_store._transaction = failing_transaction
         h = BillingHandler(ctx={"user_store": user_store})
@@ -752,7 +752,7 @@ class TestUsageExportCSV:
         @contextmanager
         def failing_transaction():
             raise ValueError("Invalid data")
-            yield  # noqa: unreachable
+            yield  # needed for generator syntax
 
         user_store._transaction = failing_transaction
         h = BillingHandler(ctx={"user_store": user_store})

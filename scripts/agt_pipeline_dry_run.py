@@ -71,7 +71,7 @@ from aragora.markets.types import (  # noqa: E402
     MarketPosition,
     ResolutionEvent as MarketResolution,
 )
-from aragora.metrics.viah import ViahReport, compute_viah  # noqa: E402
+from aragora.evaluation.viah import ViahReport, compute_viah  # noqa: E402
 from aragora.protocols.a2a.receipts import (  # noqa: E402
     AgentReceipt,
     DissentEntry,

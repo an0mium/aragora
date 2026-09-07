@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
-    from aragora.type_protocols import EloSystemProtocol, EventEmitterProtocol
+    from aragora.protocols import EloSystemProtocol, EventEmitterProtocol
 
 logger = logging.getLogger(__name__)
 

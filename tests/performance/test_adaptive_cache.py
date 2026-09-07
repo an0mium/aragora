@@ -20,7 +20,7 @@ from unittest.mock import patch
 
 import pytest
 
-from aragora.performance.adaptive_cache import (
+from aragora.caching.adaptive import (
     AccessPattern,
     AdaptiveTTLCache,
     CacheEntry,

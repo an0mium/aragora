@@ -100,4 +100,4 @@ It DID:
 - Produce a comprehensive PR triage report
 - Defer to concurrent agents on overlap (worktree inventory, proof-surface refresh)
 
-Per [`feedback_substrate_freeze_external_proof.md`](../../.claude/projects/-Users-armand-Development-aragora/memory/feedback_substrate_freeze_external_proof.md), "the redirect is *not* 'stop working on infra' — it's 'the next phase's objective is an execution run of an existing benchmark/vertical, with one artifact published to `docs/status/`.'" Phase 8 is exactly this.
+Per `feedback_substrate_freeze_external_proof.md`, "the redirect is *not* 'stop working on infra' — it's 'the next phase's objective is an execution run of an existing benchmark/vertical, with one artifact published to `docs/status/`.'" Phase 8 is exactly this.

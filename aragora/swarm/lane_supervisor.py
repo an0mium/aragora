@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from errno import EXDEV
 from pathlib import Path
@@ -89,15 +89,26 @@ def _pending_sort_key(item: tuple[Path, dict[str, Any]]) -> tuple[str, int, str]
     return (created_at, mtime_ns, path.name)
 
 
-def load_pending(root: Path) -> list[tuple[Path, dict[str, Any]]]:
+def _work_order_id_filter(work_order_ids: Iterable[str] | None) -> set[str] | None:
+    if work_order_ids is None:
+        return None
+    return {str(item).strip() for item in work_order_ids if str(item).strip()}
+
+
+def load_pending(
+    root: Path, *, work_order_ids: Iterable[str] | None = None
+) -> list[tuple[Path, dict[str, Any]]]:
     """Parsed, valid pending work orders in conductor dispatch order."""
     pending = _state_dir(root, PENDING)
     if not pending.is_dir():
         return []
+    wanted = _work_order_id_filter(work_order_ids)
     orders: list[tuple[Path, dict[str, Any]]] = []
     for path in pending.glob("*.json"):
         order = _read_order(path)
         if order is not None:
+            if wanted is not None and str(order.get("work_order_id")) not in wanted:
+                continue
             orders.append((path, order))
     return sorted(orders, key=_pending_sort_key)
 
@@ -153,9 +164,14 @@ def _settle(in_progress_path: Path, root: Path, *, ok: bool) -> Path:
     return dest
 
 
-def plan_drain(root: Path, *, max_launches: int = DEFAULT_MAX_LAUNCHES) -> DrainResult:
+def plan_drain(
+    root: Path,
+    *,
+    max_launches: int = DEFAULT_MAX_LAUNCHES,
+    work_order_ids: Iterable[str] | None = None,
+) -> DrainResult:
     """Read-only preview: which pending orders the next drain would launch."""
-    pending = load_pending(root)
+    pending = load_pending(root, work_order_ids=work_order_ids)
     cap = max(0, int(max_launches))
     result = DrainResult()
     for _path, order in pending:
@@ -176,6 +192,7 @@ def drain_once(
     root: Path,
     launch_fn: LaunchFn,
     max_launches: int = DEFAULT_MAX_LAUNCHES,
+    work_order_ids: Iterable[str] | None = None,
     now: Callable[[], str] | None = None,
 ) -> DrainResult:
     """Claim and launch up to ``max_launches`` pending orders.
@@ -188,7 +205,7 @@ def drain_once(
     stamp = now or (lambda: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
     cap = max(0, int(max_launches))
     result = DrainResult()
-    for path, order in load_pending(root):
+    for path, order in load_pending(root, work_order_ids=work_order_ids):
         wo_id = str(order.get("work_order_id"))
         # Bound launch *attempts* (successes + failures), not just successes:
         # otherwise a queue of failing orders never trips the cap and a single

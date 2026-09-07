@@ -33,12 +33,23 @@ Usage
     python3 scripts/ci/check_import_contracts.py --freeze         # shrink baseline
     python3 scripts/ci/check_import_contracts.py --freeze --adopt # initial/grow freeze
 
+Requirements
+------------
+Verified against ``import-linter==2.11`` + ``grimp==3.14``. The checker uses one
+private import-linter symbol (``use_cases._register_contract_types``); access is
+guarded by ``_resolve_register_contract_types`` so a version that renames or
+removes it raises a clear CheckerError (exit 2) instead of an AttributeError. If
+that error appears, pin import-linter to the verified version
+(``python3 -m pip install 'import-linter==2.11'``).
+
 Exit codes
 ----------
     0 -- no new violations (clean, or only resolved violations).
     1 -- one or more NEW violations (fail-on-new).
     2 -- a usage/environment error (missing config, missing baseline, import-linter
-         not installed, or a shrink-only violation on --freeze).
+         not installed, an import-linter API/version mismatch, a layer-count
+         mismatch between .importlinter and LAYER_ORDER, or a shrink-only
+         violation on --freeze).
 """
 
 from __future__ import annotations
@@ -49,6 +60,7 @@ import datetime as dt
 import json
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -82,7 +94,9 @@ def parse_layer_membership(config_path: Path) -> dict[str, str]:
     Returns a dict keyed by BOTH the fully-qualified module name
     (``aragora.config``) and its tail (``config``), each mapping to one of
     LAYER_ORDER. Layer lines are read in declaration order and zipped against
-    LAYER_ORDER positionally.
+    LAYER_ORDER positionally; the number of declared layer lines MUST equal
+    len(LAYER_ORDER) or a CheckerError is raised (a mismatch would silently
+    misalign the positional mapping and drop the extra layers).
     """
     parser = configparser.ConfigParser()
     # Section names contain colons (e.g. [importlinter:contract:aragora-layers]);
@@ -101,11 +115,17 @@ def parse_layer_membership(config_path: Path) -> dict[str, str]:
     if layers_raw is None:
         raise CheckerError(f"No 'layers' contract found in {config_path}")
 
-    membership: dict[str, str] = {}
     layer_lines = [ln.strip() for ln in layers_raw.splitlines() if ln.strip()]
+    if len(layer_lines) != len(LAYER_ORDER):
+        raise CheckerError(
+            f"{config_path} declares {len(layer_lines)} layer line(s) but the checker's "
+            f"LAYER_ORDER expects exactly {len(LAYER_ORDER)} "
+            f"({', '.join(LAYER_ORDER)}). The positional layer -> LAYER_ORDER mapping "
+            "would be misaligned; update LAYER_ORDER and .importlinter together."
+        )
+
+    membership: dict[str, str] = {}
     for index, line in enumerate(layer_lines):
-        if index >= len(LAYER_ORDER):
-            break
         layer_name = LAYER_ORDER[index]
         delimiter = ":" if ":" in line else "|"
         for raw_tail in line.split(delimiter):
@@ -127,6 +147,27 @@ def layer_of(module_full: str, membership: dict[str, str]) -> str | None:
 
 
 # --- Running import-linter --------------------------------------------------
+
+# Verified against this import-linter version (see module docstring "Requirements").
+_VERIFIED_IMPORT_LINTER = "2.11"
+
+
+def _resolve_register_contract_types(use_cases_module: object) -> Callable[..., None]:
+    """Return import-linter's contract-type registrar, or raise on a version mismatch.
+
+    ``_register_contract_types`` is a private import-linter symbol. Accessing it
+    through this guard converts a future-version AttributeError into a clear,
+    actionable CheckerError instead of an opaque crash.
+    """
+    register = getattr(use_cases_module, "_register_contract_types", None)
+    if not callable(register):
+        raise CheckerError(
+            "import-linter API mismatch: 'use_cases._register_contract_types' is "
+            f"unavailable. This checker is verified against import-linter=={_VERIFIED_IMPORT_LINTER}; "
+            f"pin it (python3 -m pip install 'import-linter=={_VERIFIED_IMPORT_LINTER}') or update "
+            "scripts/ci/check_import_contracts.py for the installed import-linter version."
+        )
+    return register
 
 
 def compute_current_violations(config_path: Path) -> dict[str, set[str]]:
@@ -150,7 +191,7 @@ def compute_current_violations(config_path: Path) -> dict[str, set[str]]:
         ) from exc
 
     user_options = use_cases.read_user_options(config_filename=str(config_path))
-    use_cases._register_contract_types(user_options)
+    _resolve_register_contract_types(use_cases)(user_options)
     report = use_cases.create_report(user_options, cache_dir=None)
 
     if report.could_not_run or report.invalid_contract_options:
@@ -226,10 +267,17 @@ def write_baseline(path: Path, violations: dict[str, set[str]], config_path: Pat
 def diff_against_baseline(
     current: dict[str, set[str]], baseline: dict[str, set[str]]
 ) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
-    """Return (new_violations, resolved_violations) per contract."""
+    """Return (new_violations, resolved_violations) per contract.
+
+    Iterates the UNION of current and baseline contract names so a contract that
+    is present in the baseline but absent from ``current`` (e.g. renamed) still
+    has its baselined violations accounted for as resolved rather than silently
+    dropped.
+    """
     new: dict[str, set[str]] = {}
     resolved: dict[str, set[str]] = {}
-    for name, cur in current.items():
+    for name in current.keys() | baseline.keys():
+        cur = current.get(name, set())
         base = baseline.get(name, set())
         new[name] = cur - base
         resolved[name] = base - cur

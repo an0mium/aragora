@@ -185,6 +185,41 @@ def test_classify_one_protects_canonical_active_session_marker(tmp_path: Path) -
     assert record["worktree_paths"] == [str(worktree)]
 
 
+def test_main_protects_detached_active_worktree_at_branch_head(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    worktree = tmp_path / "detached-worktree"
+    worktree.mkdir()
+    (worktree / ".codex_session_active").write_text("active\n", encoding="utf-8")
+    output = tmp_path / "parallel-audit.json"
+    _stub_inventory(monkeypatch)
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {"abc1234": [worktree]})
+    monkeypatch.setattr(mod, "terminal_receipted_handoff_branches", lambda *_args, **_kwargs: set())
+    monkeypatch.setattr(mod, "unresolved_outbox_handoff_branches", lambda *_args, **_kwargs: set())
+    monkeypatch.setattr(mod, "terminal_handoff_keys", lambda _receipt_dir: set())
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(repo),
+            "--out",
+            str(output),
+            "--max-branches",
+            "1",
+        ]
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    record = payload["records"][0]
+    assert rc == 0
+    assert record["category"] == mod.CATEGORY_PROTECTED_ACTIVE_WT
+    assert record["active_session"] is True
+    assert record["worktree_paths"] == [str(worktree)]
+
+
 def _stub_inventory(monkeypatch: Any, branch: str = "codex/example") -> None:
     monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: [_branch_row(branch)])
     monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())

@@ -1,0 +1,164 @@
+{
+  "mission_id": "native-mission-orchestrator",
+  "goal": "Build Aragora's native, survivable mission orchestrator (Factory-with-provenance): a stateless tick engine on boss_loop + the merge-quorum gate, running headless on API, so missions run for days and ship debate-gated, receipted changes. Spec: docs/plans/2026-06-25-native-mission-orchestrator-spec.md",
+  "milestones": [
+    "phase-a-spine",
+    "phase-b-seal",
+    "phase-c-knowledge",
+    "phase-d-runtime",
+    "phase-e-moat",
+    "phase-f-swarm"
+  ],
+  "features": [
+    {
+      "id": "a1-mission-state",
+      "milestone": "phase-a-spine",
+      "skill": "worker",
+      "status": "completed",
+      "description": "MissionState dataclass + atomic load/save mirroring Factory's features.json schema. DONE: aragora/missions/state.py.",
+      "expected_behavior": ["atomic save (tmp + os.replace)", "next_pending honors array order + feature: preconditions", "insert_feature / milestone_complete / reclaim_in_progress"],
+      "fulfills": ["VAL-NMO-001", "VAL-NMO-002"]
+    },
+    {
+      "id": "a2-stateless-tick",
+      "milestone": "phase-a-spine",
+      "skill": "worker",
+      "status": "completed",
+      "description": "MissionOrchestrator stateless tick: reload-from-disk -> reclaim orphans -> pick -> checkpoint in_progress BEFORE dispatch -> dispatch -> triage -> persist. DONE: aragora/missions/orchestrator.py.",
+      "expected_behavior": ["no state held across ticks", "checkpoint before dispatch enables crash recovery"],
+      "fulfills": ["VAL-NMO-003"]
+    },
+    {
+      "id": "a3-handoff-triage",
+      "milestone": "phase-a-spine",
+      "skill": "worker",
+      "status": "completed",
+      "description": "Handoff schema {success, blocked_reason, follow_ups, accept_follow_ups, discovered, session_id} + triage/dismiss loop (follow-ups default to advisory notes; only explicitly accepted follow-ups extend queue; discoveries -> notes). DONE in orchestrator.py. PENDING: wire discoveries/receipts into nomic/dev_coordination.",
+      "fulfills": ["VAL-NMO-004"]
+    },
+    {
+      "id": "a4-crash-resume",
+      "milestone": "phase-a-spine",
+      "skill": "worker",
+      "status": "completed",
+      "description": "Reclaim-from-disk resume policy + real kill -9 proof. DONE: tests/missions/test_mission_state.py (test_crash_mid_feature_resumes_no_loss) + scripts/mission_resume_demo.py (PASS: killed mid-feature, resumed, 6/6 once in order).",
+      "fulfills": ["VAL-NMO-005"]
+    },
+    {
+      "id": "a5-wire-boss-loop-dispatch",
+      "milestone": "phase-a-spine",
+      "skill": "worker",
+      "status": "pending",
+      "description": "Wrap swarm/boss_loop.py's tick to drive the merge-gate. ADAPTER + CONTRACT + 6 TESTS DONE: aragora/missions/dispatch.py (BossLoopDispatch + FleetGate protocol) encodes idempotency, the #8616 foreign-commit guard, Tier-3 escalation, head-bound merge, never --admin. REMAINING: LiveBossLoopGate binding (FleetGate -> swarm/quorum_evidence + cli/commands/review_queue + aragora/worktree) + drive a first real mission.",
+      "preconditions": ["feature:a2-stateless-tick"],
+      "expected_behavior": ["one feature -> one isolated worktree -> head-bound merge", "foreign-commit guard is a HARD precondition before evidence collection", "already-merged is success, not error"],
+      "fulfills": ["VAL-NMO-006"]
+    },
+    {
+      "id": "a6-mission-cli",
+      "milestone": "phase-a-spine",
+      "skill": "worker",
+      "status": "pending",
+      "description": "aragora mission {seed,run,status,resume} CLI: seed from a goal (via nomic/task_decomposer + meta_planner), run the orchestrator, show progress. Proving ground: run a tiny real mission (land the misc-2 cleanup PRs) on it.",
+      "preconditions": ["feature:a5-wire-boss-loop-dispatch"],
+      "fulfills": ["VAL-NMO-007"]
+    },
+    {
+      "id": "b1-assertion-contract",
+      "milestone": "phase-b-seal",
+      "skill": "worker",
+      "status": "pending",
+      "description": "Validation contract: VAL-* assertion schema + validation-state.json + feature.fulfills mapping (already a field on Feature). Coverage invariant: every assertion fulfilled by >=1 feature.",
+      "preconditions": ["feature:a5-wire-boss-loop-dispatch"],
+      "fulfills": ["VAL-NMO-010"]
+    },
+    {
+      "id": "b2-validator-injection",
+      "milestone": "phase-b-seal",
+      "skill": "worker",
+      "status": "pending",
+      "description": "On milestone_complete, auto-inject a scrutiny validator feature (lint/typecheck/test + per-feature review via aragora/evaluation LLM-judge) and a user-testing validator feature (assertion verification). Milestone seals only when its assertions pass.",
+      "preconditions": ["feature:b1-assertion-contract"],
+      "fulfills": ["VAL-NMO-011"]
+    },
+    {
+      "id": "c1-mission-library",
+      "milestone": "phase-c-knowledge",
+      "skill": "worker",
+      "status": "pending",
+      "description": "Mission library surface on knowledge/mound: workers read merge-gate / environment / gotchas each run and write learnings back; append-only operator-approvals ledger.",
+      "fulfills": ["VAL-NMO-020"]
+    },
+    {
+      "id": "c2-operator-escalation",
+      "milestone": "phase-c-knowledge",
+      "skill": "worker",
+      "status": "pending",
+      "description": "Fork->escalate->record->resume: blocked features surface ONE structured question via control_plane/notifications + approvals, record in the ledger, resume. Hard rule: never loop on an operator-gated blocker.",
+      "preconditions": ["feature:c1-mission-library"],
+      "fulfills": ["VAL-NMO-021"]
+    },
+    {
+      "id": "d1-role-routing",
+      "milestone": "phase-d-runtime",
+      "skill": "worker",
+      "status": "pending",
+      "description": "Per-role model binding via aragora/routing: orchestrator=flagship, worker=cheap-or-flagship per tier, validator=cross-family.",
+      "fulfills": ["VAL-NMO-030"]
+    },
+    {
+      "id": "d2-headless-api-runtime",
+      "milestone": "phase-d-runtime",
+      "skill": "worker",
+      "status": "pending",
+      "description": "THE walk-away unlock: run orchestrator + workers on API keys via config/secrets (AWS Secrets Manager), headless on EC2 -- NOT subscription CLIs. Removes the 402 ceiling + single-account contention class. Relay-with-timeout instead of hard-halt.",
+      "preconditions": ["feature:a6-mission-cli"],
+      "expected_behavior": ["launch a mission, close the laptop, it runs for days", "only pings the operator at genuine forks"],
+      "fulfills": ["VAL-NMO-031"]
+    },
+    {
+      "id": "e1-decision-receipts",
+      "milestone": "phase-e-moat",
+      "skill": "worker",
+      "status": "pending",
+      "description": "Every feature ships its merge-quorum result as a signed decision receipt (gauntlet/receipts + review_queue already produce these). Mission scorecard: N features, each adversarially vetted + receipted.",
+      "preconditions": ["feature:b2-validator-injection"],
+      "fulfills": ["VAL-NMO-040"]
+    },
+    {
+      "id": "e2-product-framing",
+      "milestone": "phase-e-moat",
+      "skill": "worker",
+      "status": "pending",
+      "description": "Position as 'autonomous engineering where every change is debate-gated and receipted' (Factory-with-provenance). Dogfood: Aragora governs Aragora's own development = the demo.",
+      "preconditions": ["feature:e1-decision-receipts"],
+      "fulfills": ["VAL-NMO-041"]
+    },
+    {
+      "id": "f1-stigmergic-ledger",
+      "milestone": "phase-f-swarm",
+      "skill": "worker",
+      "status": "completed",
+      "description": "Shared 'pheromone' environment for a dispatcher-free worker swarm. DONE: aragora/missions/ledger.py (file-locked atomic claims/leases + evaporation + constraint/park memory + select_for). 10 tests + scripts/mission_swarm_demo.py (PASS: 3 worker processes self-partitioned 9 units, zero collisions, no dispatcher). Encodes the research synthesis: stigmergy/ACO (claims), response-threshold division of labor (select_for), Reflexion-as-data (constraints are environment state, NOT self-edited prompts).",
+      "fulfills": ["VAL-NMO-050"]
+    },
+    {
+      "id": "f2-pheromone-wired-to-gate",
+      "milestone": "phase-f-swarm",
+      "skill": "worker",
+      "status": "completed",
+      "description": "Pheromone wired to the gate (CONTRACT). DONE: aragora/missions/swarm.py (run_worker: select via ledger -> run gate dispatch -> record_done on success, park constraint after park_threshold blocks; converges, no unbounded retry). select_for reads done/parks; the dispatch (BossLoopDispatch) stays the hard selector. 4 tests incl. treadmill-escape (a persistent blocker is parked after N attempts and the swarm finishes the rest -- the anti-treadmill a stateless prompt loop cannot keep). REMAINING (via a5): swap the fake gate for the LIVE boss_loop/review_queue binding.",
+      "preconditions": ["feature:f1-stigmergic-ledger"],
+      "fulfills": ["VAL-NMO-051"]
+    },
+    {
+      "id": "f3-swarm-vs-orchestrator-experiment",
+      "milestone": "phase-f-swarm",
+      "skill": "worker",
+      "status": "pending",
+      "description": "Bounded, measured experiment: N cheap workers picking units via the ledger (lease + novelty pressure) + merge-quorum gate as selector, vs the single orchestrator, on the same backlog. Measure throughput-per-token + contention-resistance. Hypothesis: swarm wins on exploration breadth + contention-resistance; gate remains non-negotiable for correctness; the ledger design (not the prompts) is what makes or breaks it.",
+      "preconditions": ["feature:f2-pheromone-wired-to-gate", "feature:a6-mission-cli"],
+      "fulfills": ["VAL-NMO-052"]
+    }
+  ]
+}

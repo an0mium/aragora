@@ -180,7 +180,7 @@ from aragora.pulse import (
 
 # View default weights
 for platform, weight in DEFAULT_SOURCE_WEIGHTS.items():
-    print(f"\{platform\}: credibility={weight.base_credibility}")
+    print(f"{platform}: credibility={weight.base_credibility}")
 
 # Create weighting system
 system = SourceWeightingSystem()
@@ -399,7 +399,7 @@ sim = consensus._calculate_similarity(
     "OpenAI releases GPT-5",
     "GPT-5 released by OpenAI today",
 )
-print(f"Similarity: \{sim\}")  # ~0.7
+print(f"Similarity: {sim}")  # ~0.7
 
 # Keyword extraction
 keywords = consensus._extract_keywords("The quick brown fox jumps")

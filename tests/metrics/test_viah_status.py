@@ -1,4 +1,4 @@
-"""Tests for aragora.metrics.viah_status — VIAH operator-truth report generator.
+"""Tests for aragora.evaluation.viah_status — VIAH operator-truth report generator.
 
 Pre-registers an aragora.swarm package stub so Python never runs the heavy
 ``aragora/swarm/__init__.py`` chain.  The real shift_ledger submodule
@@ -26,8 +26,8 @@ from pathlib import Path
 
 import pytest
 
-from aragora.metrics.viah import VIAH_TREND_FLAG
-from aragora.metrics.viah_status import generate_viah_status_report
+from aragora.evaluation.viah import VIAH_TREND_FLAG
+from aragora.evaluation.viah_status import generate_viah_status_report
 from aragora.swarm.shift_ledger import ShiftLedger
 
 

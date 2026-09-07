@@ -536,7 +536,7 @@ Available Prometheus metrics:
 aragora_webhook_deliveries_total{event_type, success}
 
 # Delivery duration histogram
-aragora_webhook_delivery_duration_seconds\{event_type\}
+aragora_webhook_delivery_duration_seconds{event_type}
 
 # Retry counter
 aragora_webhook_delivery_retries_total{event_type, attempt}
@@ -545,7 +545,7 @@ aragora_webhook_delivery_retries_total{event_type, attempt}
 aragora_webhook_queue_size
 
 # Active endpoints gauge
-aragora_webhook_active_endpoints\{event_type\}
+aragora_webhook_active_endpoints{event_type}
 
 # Failures by status code
 aragora_webhook_failures_by_status_total{event_type, status_code}

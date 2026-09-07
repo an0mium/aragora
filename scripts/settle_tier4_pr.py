@@ -10,10 +10,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
-from collections.abc import Callable, Sequence
+import time
+from collections.abc import Callable, Collection, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -34,7 +36,7 @@ except Exception:  # pragma: no cover - script must still run in partial checkou
     gh_subprocess_run = None  # type: ignore[assignment]
 
     def github_cli_env(
-        base_env: dict[str, str] | None = None,
+        base_env: Mapping[str, str] | None = None,
         *,
         prefer_app: bool = True,
     ) -> dict[str, str]:
@@ -61,6 +63,7 @@ OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comm
 REQUIRED_CHECKS_BLOCKER = "required checks are missing"
 REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER = "required_check_visibility_skew"
 REQUIRED_CHECK_REST_VISIBILITY_CONTEXT = "required check REST visibility"
+BRANCH_PROTECTION_PREFLIGHT_BLOCKER = "branch protection preflight failed"
 MERGE_QUORUM_SETTLEMENT_PROOF_BLOCKER = (
     "aragora-merge-quorum failure is not proven to be missing human settlement"
 )
@@ -573,6 +576,8 @@ def _packet_marks_tier4_settlement_surface(merge_packet: dict[str, Any], *, pr: 
     if isinstance(required, list) and str(pr) in {str(item) for item in required}:
         return True
     tier = entry.get("tier")
+    if not isinstance(tier, str | int | float):
+        return False
     try:
         return int(tier) >= 4
     except (TypeError, ValueError):
@@ -787,6 +792,115 @@ def _required_check_visibility_skew_report(
             "refusing Tier 4 merge/apply before mergePullRequest can reject on stale state."
         ),
         "next_prompt": _visibility_skew_next_prompt(pr=pr, head=head),
+    }
+
+
+_RUN_ID_RE = re.compile(r"/actions/runs/(\d+)")
+
+
+def _superseded_run_ids(skew_report: Mapping[str, Any]) -> list[str]:
+    """Extract the workflow run IDs of the superseded stale-FAILURE contexts.
+
+    Every context in ``stale_failed_required_contexts`` is, by construction of
+    :func:`_required_check_visibility_skew_report`, a required check that GitHub's
+    ``--required`` surface reports GREEN (a newer successful run exists) yet the
+    GraphQL rollup still lists as failed. Re-running that superseded failed run so
+    it re-concludes green is therefore always safe — we never re-run a context
+    whose latest run is genuinely failing. Run IDs are parsed from each context's
+    ``details_url``; contexts without a parseable run URL are skipped.
+    """
+    run_ids: list[str] = []
+    for context in skew_report.get("stale_failed_required_contexts") or []:
+        if not isinstance(context, Mapping):
+            continue
+        url = str(context.get("details_url") or "")
+        match = _RUN_ID_RE.search(url)
+        if match:
+            run_id = match.group(1)
+            if run_id not in run_ids:
+                run_ids.append(run_id)
+    return run_ids
+
+
+def _rerun_workflow_run(run_id: str, *, cwd: Path, repo: str) -> bool:
+    """``gh run rerun <run_id>`` (a read-safe CI re-trigger). Returns success."""
+    try:
+        _run_text_command(["gh", "run", "rerun", run_id, "--repo", repo], cwd=cwd)
+        return True
+    except (subprocess.CalledProcessError, RuntimeError, OSError):
+        return False
+
+
+def _auto_resolve_visibility_skew(
+    *,
+    pr: int,
+    head: str,
+    repo: str,
+    cwd: Path,
+    skew_report: Mapping[str, Any],
+    max_reruns: int,
+    timeout_seconds: float,
+    poll_seconds: float,
+    load_inputs: Callable[[], tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]],
+    rerun_run: Callable[[str], bool] | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+    monotonic: Callable[[], float] = time.monotonic,
+    log: Callable[[str], None] = lambda _msg: None,
+) -> dict[str, Any]:
+    """Bounded rerun-and-wait to clear a superseded required-check visibility skew.
+
+    Re-runs the superseded stale-FAILURE run(s), then polls the live rollup until
+    the skew clears or the budget is spent. The timeout is split into ``max_reruns``
+    windows; a fresh re-trigger opens each window. Purely mechanical: only re-runs
+    already-superseded runs (see :func:`_superseded_run_ids`), never edits files,
+    never touches branch protection. Dependencies are injected so this is unit-
+    testable without the network or real sleeps.
+
+    Returns ``{cleared: bool, reruns: [...], triggers: int, reason: str}``.
+    """
+    rerun = rerun_run or (lambda rid: _rerun_workflow_run(rid, cwd=cwd, repo=repo))
+    reruns: list[dict[str, Any]] = []
+    current_skew: Mapping[str, Any] | None = skew_report
+    max_reruns = max(1, int(max_reruns))
+    window = timeout_seconds / max_reruns
+
+    for trigger in range(max_reruns):
+        if current_skew is None:
+            break
+        run_ids = _superseded_run_ids(current_skew)
+        if not run_ids:
+            return {
+                "cleared": False,
+                "reruns": reruns,
+                "triggers": trigger,
+                "reason": "no parseable superseded run id in skew report; cannot auto-resolve",
+            }
+        for run_id in run_ids:
+            ok = rerun(run_id)
+            reruns.append({"run_id": run_id, "ok": ok})
+            log(f"re-ran superseded merge-quorum run {run_id} (ok={ok})")
+
+        window_deadline = monotonic() + window
+        while monotonic() < window_deadline:
+            sleep(poll_seconds)
+            pr_view, _packet, required_checks = load_inputs()
+            current_skew = _required_check_visibility_skew_report(
+                pr=pr, head=head, pr_view=pr_view, required_checks=required_checks
+            )
+            if current_skew is None:
+                log("required-check visibility skew cleared")
+                return {
+                    "cleared": True,
+                    "reruns": reruns,
+                    "triggers": trigger + 1,
+                    "reason": "skew cleared after rerun-and-wait",
+                }
+
+    return {
+        "cleared": False,
+        "reruns": reruns,
+        "triggers": max_reruns,
+        "reason": "skew persisted after auto-resolve budget was exhausted",
     }
 
 
@@ -1558,7 +1672,7 @@ def _load_live_inputs(
 
 def _required_status_check_patch(*, repo: str, cwd: Path) -> tuple[list[str], str] | None:
     endpoint = f"repos/{repo}/branches/main/protection/required_status_checks"
-    current = _run_json(["gh", "api", endpoint], cwd=cwd)
+    current = _run_json(["gh", "api", endpoint], cwd=cwd, write_op=True)
     contexts = current.get("contexts")
     if not isinstance(contexts, list):
         checks = current.get("checks")
@@ -1621,8 +1735,22 @@ def _top_level_rule_absent(top_level: dict[str, Any], key: str) -> bool:
 
 
 def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
-    login = _current_gh_login(cwd=cwd)
-    if not _login_has_admin_permission(login, repo, cwd):
+    try:
+        login = _current_gh_login(cwd=cwd)
+        has_admin_permission = _login_has_admin_permission(login, repo, cwd)
+    except RuntimeError as exc:
+        raise Tier4ApplyError(
+            f"Tier 4 branch-protection preflight failed before merge mutation: "
+            f"could not probe gh admin permission: {exc}",
+            phase="preflight",
+            mutation_occurred=False,
+            completed_commands=0,
+            recovery_action=(
+                "verify gh auth is available and the eventual merge applier has "
+                "branch-protection admin access, then rerun --merge-apply"
+            ),
+        ) from exc
+    if not has_admin_permission:
         raise Tier4ApplyError(
             f"Tier 4 branch-protection preflight failed: gh login {login} lacks admin permission",
             phase="preflight",
@@ -1633,7 +1761,7 @@ def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
 
     base = f"repos/{repo}/branches/main/protection"
     try:
-        top_level = _run_json(["gh", "api", base], cwd=cwd)
+        top_level = _run_json(["gh", "api", base], cwd=cwd, write_op=True)
     except RuntimeError as exc:
         raise Tier4ApplyError(
             f"Tier 4 branch-protection preflight failed before merge mutation: {base}: {exc}",
@@ -1652,7 +1780,7 @@ def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
         ("enforce_admins", f"{base}/enforce_admins"),
     ):
         try:
-            _run_json(["gh", "api", endpoint], cwd=cwd)
+            _run_json(["gh", "api", endpoint], cwd=cwd, write_op=True)
         except RuntimeError as exc:
             if _is_not_found_error(exc) and _top_level_rule_absent(top_level, key):
                 continue
@@ -1669,11 +1797,69 @@ def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
             ) from exc
 
 
+def _branch_protection_preflight_is_observational_permission_probe(
+    exc: Tier4ApplyError,
+) -> bool:
+    """Return whether ``--check`` only proved the current observer lacks admin."""
+
+    return (
+        exc.phase == "preflight"
+        and exc.mutation_occurred is False
+        and exc.completed_commands == 0
+        and "lacks admin permission" in str(exc)
+    )
+
+
+def _branch_protection_preflight_report(
+    *,
+    repo: str,
+    cwd: Path,
+    authorized_actions: Collection[str],
+) -> dict[str, Any]:
+    """Run the merge-apply branch-protection capability probe without mutating."""
+
+    if "branch_protection" not in authorized_actions:
+        return {
+            "required": False,
+            "ok": True,
+            "skipped_reason": "branch_protection_reconcile was not authorized",
+        }
+    try:
+        _preflight_branch_protection_reconcile(repo=repo, cwd=cwd)
+    except Tier4ApplyError as exc:
+        payload = exc.to_payload()
+        if _branch_protection_preflight_is_observational_permission_probe(exc):
+            return {
+                **payload,
+                "required": True,
+                "ok": True,
+                "advisory": True,
+                "error": str(exc),
+                "non_blocking_reason": (
+                    "current gh login lacks admin permission; --check is observational "
+                    "and the eventual --merge-apply operator may use a different trusted login"
+                ),
+            }
+        return {
+            **payload,
+            "required": True,
+            "ok": False,
+            "error": str(exc),
+        }
+    return {
+        "required": True,
+        "ok": True,
+        "phase": "preflight",
+        "mutation_occurred": False,
+        "completed_commands": 0,
+    }
+
+
 def _branch_protection_snapshot(*, repo: str, cwd: Path) -> dict[str, Any]:
     base = f"repos/{repo}/branches/main/protection"
     snapshot: dict[str, Any] = {}
     try:
-        top_level = _run_json(["gh", "api", base], cwd=cwd)
+        top_level = _run_json(["gh", "api", base], cwd=cwd, write_op=True)
     except RuntimeError as exc:
         snapshot["branch_protection"] = {"snapshot_error": str(exc)}
         return snapshot
@@ -1684,7 +1870,7 @@ def _branch_protection_snapshot(*, repo: str, cwd: Path) -> dict[str, Any]:
         "enforce_admins": f"{base}/enforce_admins",
     }.items():
         try:
-            snapshot[key] = _run_json(["gh", "api", endpoint], cwd=cwd)
+            snapshot[key] = _run_json(["gh", "api", endpoint], cwd=cwd, write_op=True)
         except RuntimeError as exc:
             if _is_not_found_error(exc) and _top_level_rule_absent(top_level, key):
                 snapshot[key] = None
@@ -1945,6 +2131,36 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--skew-auto-resolve",
+        action="store_true",
+        help=(
+            "On --merge-apply, if a required_check_visibility_skew is detected "
+            "(a superseded stale-FAILURE required run lingering beside a newer "
+            "SUCCESS at the same head), automatically re-run the superseded run(s) "
+            "and wait, bounded, for the rollup to clear before applying. Only "
+            "re-runs already-superseded runs; never touches branch protection. "
+            "Default OFF (falls back to today's block + operator prompt)."
+        ),
+    )
+    parser.add_argument(
+        "--skew-max-reruns",
+        type=int,
+        default=1,
+        help="Max superseded-run re-trigger rounds for --skew-auto-resolve (default: 1).",
+    )
+    parser.add_argument(
+        "--skew-timeout-seconds",
+        type=float,
+        default=300.0,
+        help="Total wall-clock budget for --skew-auto-resolve (default: 300).",
+    )
+    parser.add_argument(
+        "--skew-poll-seconds",
+        type=float,
+        default=20.0,
+        help="Poll interval while waiting for the skew to clear (default: 20).",
+    )
     return parser
 
 
@@ -2023,6 +2239,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cwd=args.cwd,
                 trusted_operator_logins=args.trusted_operator_login,
             )
+            if args.check and gate["ok"]:
+                branch_protection_preflight = _branch_protection_preflight_report(
+                    repo=args.repo,
+                    cwd=args.cwd,
+                    authorized_actions=set(gate.get("authorized_actions") or []),
+                )
+                gate["branch_protection_preflight"] = branch_protection_preflight
+                preflight_required = bool(branch_protection_preflight.get("required"))
+                preflight_ok = bool(branch_protection_preflight.get("ok"))
+                if preflight_required and not preflight_ok:
+                    error = str(branch_protection_preflight.get("error") or "").strip()
+                    blocker = BRANCH_PROTECTION_PREFLIGHT_BLOCKER
+                    if error:
+                        blocker = f"{blocker}: {error}"
+                    gate["blockers"].append(blocker)
+                    gate["settle_eligible"] = False
+                    gate["ok"] = False
         if args.merge_apply:
             if not gate["ok"]:
                 raise RuntimeError("Tier 4 gate is not satisfied; refusing --merge-apply")
@@ -2032,6 +2265,52 @@ def main(argv: Sequence[str] | None = None) -> int:
                 pr_view=pr_view,
                 required_checks=required_checks,
             )
+            skew_auto_resolution: dict[str, Any] | None = None
+            if visibility_skew is not None and args.skew_auto_resolve:
+                skew_auto_resolution = _auto_resolve_visibility_skew(
+                    pr=args.pr,
+                    head=args.head,
+                    repo=args.repo,
+                    cwd=args.cwd,
+                    skew_report=visibility_skew,
+                    max_reruns=args.skew_max_reruns,
+                    timeout_seconds=args.skew_timeout_seconds,
+                    poll_seconds=args.skew_poll_seconds,
+                    load_inputs=lambda: _load_live_inputs(args.pr, cwd=args.cwd, repo=args.repo),
+                    log=lambda msg: None if args.json else print(msg),
+                )
+                if skew_auto_resolution.get("cleared"):
+                    # Skew is gone (the superseded run re-concluded green). Re-read
+                    # live inputs so the merge acts on current truth.
+                    pr_view, merge_packet, required_checks = _load_live_inputs(
+                        args.pr, cwd=args.cwd, repo=args.repo
+                    )
+                    # Re-evaluate the FULL gate on the fresh inputs — the reload
+                    # could have changed gate-relevant state (head moved, a required
+                    # check regressed, settlement invalidated); never merge on the
+                    # stale pre-resolve gate (#8750 openai [P1]).
+                    gate = evaluate_tier4_gate(
+                        pr=args.pr,
+                        expected_head=args.head,
+                        pr_view=pr_view,
+                        merge_packet=merge_packet,
+                        required_checks=required_checks,
+                        require_branch_protection_token=False,
+                        repo=args.repo,
+                        cwd=args.cwd,
+                        trusted_operator_logins=args.trusted_operator_login,
+                    )
+                    if not gate["ok"]:
+                        raise RuntimeError(
+                            "Tier 4 gate is not satisfied after skew auto-resolve "
+                            "reload; refusing --merge-apply"
+                        )
+                    visibility_skew = _required_check_visibility_skew_report(
+                        pr=args.pr,
+                        head=args.head,
+                        pr_view=pr_view,
+                        required_checks=required_checks,
+                    )
             if visibility_skew is not None:
                 out = {
                     "ok": False,
@@ -2041,11 +2320,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "required_check_visibility_skew": visibility_skew,
                     "next_prompt": visibility_skew["next_prompt"],
                 }
+                if skew_auto_resolution is not None:
+                    out["skew_auto_resolution"] = skew_auto_resolution
                 if args.json:
                     print(json.dumps(out, indent=2, sort_keys=True))
                 else:
                     print("blocked")
                     print(f"- {REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER}")
+                    if skew_auto_resolution is not None:
+                        print(
+                            f"- skew-auto-resolve: {skew_auto_resolution.get('reason')} "
+                            f"(reruns={len(skew_auto_resolution.get('reruns') or [])})"
+                        )
                     print(visibility_skew["next_prompt"])
                 return 2
             applied_commands = _apply_merge(

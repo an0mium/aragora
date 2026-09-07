@@ -32,6 +32,7 @@ from aragora.agents.api_agents.common import (
 )
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry
+from aragora.config.model_pins import GEMINI_31_PRO_VIA_OPENROUTER
 
 logger = logging.getLogger(__name__)
 
@@ -116,21 +117,21 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
         # Every Gemini ID maps to Gemini 3.1 Pro via OpenRouter so weaker
         # historical models are transparently upgraded and a missing
         # GEMINI_API_KEY / GOOGLE_API_KEY never blocks a debate.
-        "gemini-3.1-pro-preview": "google/gemini-3.1-pro",
-        "gemini-3.1-pro": "google/gemini-3.1-pro",
-        "gemini-3-flash-preview": "google/gemini-3.1-pro",
-        "gemini-3-flash": "google/gemini-3.1-pro",
-        "gemini-3-pro-preview": "google/gemini-3.1-pro",
-        "gemini-3-pro": "google/gemini-3.1-pro",
-        "gemini-2.5-pro": "google/gemini-3.1-pro",
-        "gemini-2.5-flash": "google/gemini-3.1-pro",
-        "gemini-2.0-flash": "google/gemini-3.1-pro",
-        "gemini-2.0-flash-001": "google/gemini-3.1-pro",
-        "gemini-1.5-pro": "google/gemini-3.1-pro",
-        "gemini-1.5-flash": "google/gemini-3.1-pro",
-        "gemini-pro": "google/gemini-3.1-pro",
+        "gemini-3.1-pro-preview": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-3.1-pro": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-3-flash-preview": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-3-flash": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-3-pro-preview": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-3-pro": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-2.5-pro": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-2.5-flash": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-2.0-flash": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-2.0-flash-001": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-1.5-pro": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-1.5-flash": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-pro": GEMINI_31_PRO_VIA_OPENROUTER,
     }
-    DEFAULT_FALLBACK_MODEL = "google/gemini-3.1-pro"
+    DEFAULT_FALLBACK_MODEL = GEMINI_31_PRO_VIA_OPENROUTER
 
     def __init__(
         self,
@@ -190,6 +191,8 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
     )
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using Gemini API."""
+        # Fail-closed monthly budget cap (no-op unless ARAGORA_MONTHLY_BUDGET_USD set).
+        self._enforce_budget_precall()
         if not self.api_key:
             logger.warning("[%s] Missing API key, attempting OpenRouter fallback", self.name)
             result = await self.fallback_generate(prompt, context, status_code=401)
@@ -353,6 +356,12 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
             "contents": [{"parts": [{"text": full_prompt}]}],
             "generationConfig": generation_config,
         }
+        estimated_budget_usd = self._estimate_budget_cost_from_text_usd(
+            full_prompt,
+            int(generation_config["maxOutputTokens"]),
+        )
+        self._enforce_budget_precall(estimated_budget_usd)
+        from aragora.billing import budget_guard
 
         # Add Google Search grounding if web search is needed
         if self._needs_web_search(full_prompt):
@@ -450,6 +459,8 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                                     break
                             except json.JSONDecodeError:
                                 break
+                    if estimated_budget_usd > 0:
+                        budget_guard.record_spend(estimated_budget_usd)
                 except asyncio.TimeoutError:
                     logger.warning("[%s] Streaming timeout", self.name)
                     raise

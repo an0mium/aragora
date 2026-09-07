@@ -4,7 +4,7 @@ Use this page when you need the endpoints most teams touch first. It keeps the
 quickstart-critical routes in one place and points to the generated reference
 when you need full schemas or less common operations.
 
-> **New to Aragora?** Start with the [Developer Quickstart](../QUICKSTART_DEVELOPER.md)
+> **New to Aragora?** Start with the [Developer Quickstart](../quickstart.md)
 > to run your first review, then come back here for API integration.
 
 ## Base URL

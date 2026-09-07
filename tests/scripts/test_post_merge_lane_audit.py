@@ -102,3 +102,54 @@ def test_post_merge_lane_audit_apply_refuses_unmerged_pr_without_mutation() -> N
     assert result["audit_ok"] is False
     assert result["audit_applied"] is False
     assert result["audit_error"] == "pr_not_merged"
+
+
+def test_post_merge_lane_audit_blocks_payload_with_zero_exit() -> None:
+    commands: list[list[str]] = []
+
+    def runner(args: list[str]) -> subprocess.CompletedProcess[str]:
+        commands.append(args)
+        return _proc(args, _dry_payload(blocked_reason="invalid_automation_state_root"))
+
+    result = run_post_merge_lane_audit(7435, apply=True, runner=runner)
+
+    assert len(commands) == 1
+    assert result["audit_ok"] is False
+    assert result["audit_applied"] is False
+    assert result["audit_error"] == "invalid_automation_state_root"
+
+
+def test_post_merge_lane_audit_blocks_unknown_zero_exit_blocker() -> None:
+    commands: list[list[str]] = []
+
+    def runner(args: list[str]) -> subprocess.CompletedProcess[str]:
+        commands.append(args)
+        return _proc(args, _dry_payload(blocked_reason="future_blocker"))
+
+    result = run_post_merge_lane_audit(7435, apply=True, runner=runner)
+
+    assert len(commands) == 1
+    assert result["audit_ok"] is False
+    assert result["audit_applied"] is False
+    assert result["audit_error"] == "future_blocker"
+
+
+def test_post_merge_lane_audit_skips_benign_no_active_lane_result() -> None:
+    commands: list[list[str]] = []
+
+    def runner(args: list[str]) -> subprocess.CompletedProcess[str]:
+        commands.append(args)
+        return _proc(
+            args,
+            _dry_payload(
+                finding_count=0,
+                blocked_reason="no_active_lanes_for_merged_pr",
+            ),
+        )
+
+    result = run_post_merge_lane_audit(7435, apply=True, runner=runner)
+
+    assert len(commands) == 1
+    assert result["audit_ok"] is True
+    assert result["audit_applied"] is False
+    assert result["audit_apply_skipped_reason"] == "no_active_lanes_for_merged_pr"

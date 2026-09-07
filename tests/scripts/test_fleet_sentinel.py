@@ -34,6 +34,22 @@ NOW = sentinel.parse_iso("2026-06-10T12:00:00Z")
 HOUR = 3600.0
 
 
+def _init_repo_with_origin(
+    path: Path, origin: str = "https://github.com/synaptent/aragora.git"
+) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "init"], cwd=path, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    subprocess.run(
+        ["git", "config", "remote.origin.url", origin],
+        cwd=path,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
 def _touch(path: Path, *, age_hours: float = 0.0, content: str = "x") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
@@ -143,6 +159,308 @@ def test_publisher_status_default_is_live_cache_path() -> None:
     args = sentinel.build_parser().parse_args([])
     default = Path(args.publisher_status)
     assert default.parts[-3:] == (".aragora", "automation-github-status", "latest.json")
+
+
+def test_stale_terminal_owner_defaults_use_automation_state_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    state_root = tmp_path / "shared-state"
+    trusted_root = (state_root / ".aragora").resolve()
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+    monkeypatch.setattr(
+        sentinel,
+        "_trusted_automation_state_roots",
+        lambda repo_root: {trusted_root},
+    )
+
+    args = sentinel.build_parser().parse_args([])
+
+    root = trusted_root
+    assert Path(args.agent_bridge_lanes) == root / "agent-bridge" / "lanes.json"
+    assert Path(args.agent_heartbeats) == root / "agent-bridge" / "heartbeats.json"
+    assert Path(args.operator_steering_root) == root / "operator-steering"
+    assert (
+        Path(args.stale_terminal_owner_receipt_dir)
+        == root / "agent-bridge" / "conflict-resolution-receipts"
+    )
+
+
+def test_automation_state_root_accepts_registered_worktree_checkout(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    repo = tmp_path / "repo"
+    shared = tmp_path / "shared-checkout"
+    _init_repo_with_origin(repo)
+    _init_repo_with_origin(shared, "git@github.com:synaptent/aragora.git")
+    (shared / ".aragora").mkdir()
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared))
+    monkeypatch.setattr(
+        sentinel,
+        "_registered_worktree_roots",
+        lambda repo_root: {repo.resolve(), shared.resolve()},
+    )
+
+    assert sentinel._automation_state_root(repo) == (shared / ".aragora").resolve()
+
+
+def test_automation_state_root_rejects_unregistered_same_origin_checkout(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    repo = tmp_path / "repo"
+    shared = tmp_path / "shared-checkout"
+    _init_repo_with_origin(repo)
+    _init_repo_with_origin(shared)
+    (shared / ".aragora").mkdir()
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared))
+    monkeypatch.setattr(sentinel, "_registered_worktree_roots", lambda repo_root: {repo.resolve()})
+
+    try:
+        sentinel._automation_state_root(repo)
+    except ValueError as exc:
+        assert "untrusted ARAGORA_AUTOMATION_STATE_ROOT" in str(exc)
+        assert "registered worktree" in str(exc)
+    else:
+        raise AssertionError("unregistered same-origin automation state root was accepted")
+
+
+def test_automation_state_root_rejects_different_origin_checkout(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    repo = tmp_path / "repo"
+    shared = tmp_path / "shared-checkout"
+    _init_repo_with_origin(repo)
+    _init_repo_with_origin(shared, "https://github.com/elsewhere/other.git")
+    (shared / ".aragora").mkdir()
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared))
+
+    try:
+        sentinel._automation_state_root(repo)
+    except ValueError as exc:
+        assert "untrusted ARAGORA_AUTOMATION_STATE_ROOT" in str(exc)
+    else:
+        raise AssertionError("different-origin automation state root was accepted")
+
+
+def test_automation_state_root_rejects_repo_subdirectory_bypass(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    repo = tmp_path / "repo"
+    _init_repo_with_origin(repo)
+    subdir = repo / "nested"
+    (subdir / ".aragora").mkdir(parents=True)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(subdir))
+    monkeypatch.setattr(sentinel, "_registered_worktree_roots", lambda repo_root: {repo.resolve()})
+
+    try:
+        sentinel._automation_state_root(repo)
+    except ValueError as exc:
+        assert "untrusted ARAGORA_AUTOMATION_STATE_ROOT" in str(exc)
+    else:
+        raise AssertionError("repo subdirectory automation state root was accepted")
+
+
+def test_main_explicit_paths_survive_untrusted_automation_state_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "attacker-state"))
+    registry = tmp_path / "lanes.json"
+    heartbeats = tmp_path / "heartbeats.json"
+    steering = tmp_path / "operator-steering"
+    receipts = tmp_path / "receipts"
+    registry.write_text("[]", encoding="utf-8")
+    heartbeats.write_text("[]", encoding="utf-8")
+    steering.mkdir()
+    receipts.mkdir()
+
+    code = sentinel.main(
+        [
+            "--json",
+            "--no-ledger",
+            "--checks",
+            "stale_terminal_owner",
+            "--agent-bridge-lanes",
+            str(registry),
+            "--agent-heartbeats",
+            str(heartbeats),
+            "--operator-steering-root",
+            str(steering),
+            "--stale-terminal-owner-receipt-dir",
+            str(receipts),
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert report["checks"][0]["status"] == "ok"
+
+
+def test_main_explicit_default_paths_survive_untrusted_automation_state_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "attacker-state"))
+    monkeypatch.setattr(
+        sentinel,
+        "_trusted_automation_state_roots",
+        lambda repo_root: {(tmp_path / "repo" / ".aragora").resolve()},
+    )
+    canonical_root = (
+        sentinel._canonical_repo_root(sentinel.DEFAULT_REPO_ROOT) / ".aragora"
+    ).resolve()
+    monkeypatch.setattr(
+        sentinel,
+        "check_stale_terminal_owner",
+        lambda *args, **kwargs: sentinel._result("stale_terminal_owner", "ok", "called"),
+    )
+
+    code = sentinel.main(
+        [
+            "--json",
+            "--no-ledger",
+            "--checks",
+            "stale_terminal_owner",
+            "--agent-bridge-lanes",
+            str(canonical_root / "agent-bridge" / "lanes.json"),
+            "--agent-heartbeats",
+            str(canonical_root / "agent-bridge" / "heartbeats.json"),
+            "--operator-steering-root",
+            str(canonical_root / "operator-steering"),
+            "--stale-terminal-owner-receipt-dir",
+            str(canonical_root / "agent-bridge" / "conflict-resolution-receipts"),
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert report["checks"][0]["status"] == "ok"
+
+
+def test_run_checks_infers_direct_namespace_explicit_paths(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    args = sentinel.build_parser().parse_args(["--checks", "stale_terminal_owner"])
+    args.agent_bridge_lanes = str(tmp_path / "lanes.json")
+    args.agent_heartbeats = str(tmp_path / "heartbeats.json")
+    args.operator_steering_root = str(tmp_path / "operator-steering")
+    args.stale_terminal_owner_receipt_dir = str(tmp_path / "receipts")
+    args._automation_state_root_error = "untrusted state root"
+    args._automation_state_root_default_paths = {
+        "agent_bridge_lanes": "/attacker/.aragora/agent-bridge/lanes.json",
+        "agent_heartbeats": "/attacker/.aragora/agent-bridge/heartbeats.json",
+        "operator_steering_root": "/attacker/.aragora/operator-steering",
+        "stale_terminal_owner_receipt_dir": (
+            "/attacker/.aragora/agent-bridge/conflict-resolution-receipts"
+        ),
+    }
+    called: dict[str, bool] = {}
+
+    def fake_check(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        called["yes"] = True
+        return sentinel._result("stale_terminal_owner", "ok", "called")
+
+    monkeypatch.setattr(sentinel, "check_stale_terminal_owner", fake_check)
+
+    checks = sentinel.run_checks(args, NOW)
+
+    assert called == {"yes": True}
+    assert checks == [sentinel._result("stale_terminal_owner", "ok", "called")]
+
+
+def test_main_rejects_partial_explicit_paths_with_untrusted_automation_state_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "attacker-state"))
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]", encoding="utf-8")
+
+    code = sentinel.main(
+        [
+            "--json",
+            "--no-ledger",
+            "--checks",
+            "stale_terminal_owner",
+            "--agent-bridge-lanes",
+            str(registry),
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 2
+    check = report["checks"][0]
+    assert check["status"] == "unknown"
+    assert "invalid automation state root" in check["detail"]
+    assert "agent_heartbeats" in check["detail"]
+    assert "operator_steering_root" in check["detail"]
+    assert "stale_terminal_owner_receipt_dir" in check["detail"]
+    assert "agent_bridge_lanes" not in check["detail"]
+
+
+def test_automation_state_root_rejects_untrusted_env_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    trusted_root = (tmp_path / "repo" / ".aragora").resolve()
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "attacker-state"))
+    monkeypatch.setattr(
+        sentinel,
+        "_trusted_automation_state_roots",
+        lambda repo_root: {trusted_root},
+    )
+
+    try:
+        sentinel._automation_state_root(tmp_path / "repo")
+    except ValueError as exc:
+        assert "untrusted ARAGORA_AUTOMATION_STATE_ROOT" in str(exc)
+        assert str(trusted_root) in str(exc)
+    else:
+        raise AssertionError("untrusted automation state root was accepted")
+
+
+def test_build_parser_fails_closed_when_untrusted_env_defaults_would_be_used(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "attacker-state"))
+    monkeypatch.setattr(sentinel, "DEFAULT_REPO_ROOT", tmp_path / "repo")
+
+    code = sentinel.main(["--json", "--no-ledger", "--checks", "stale_terminal_owner"])
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert report["checks"][0]["status"] == "unknown"
+    assert "invalid automation state root" in report["checks"][0]["detail"]
+
+
+def test_stale_terminal_owner_defaults_use_canonical_repo_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    canonical_root = tmp_path / "canonical-repo"
+    monkeypatch.delenv("ARAGORA_AUTOMATION_STATE_ROOT", raising=False)
+    monkeypatch.setattr(sentinel, "_canonical_repo_root", lambda path: canonical_root)
+
+    args = sentinel.build_parser().parse_args([])
+
+    root = canonical_root / ".aragora"
+    assert Path(args.agent_bridge_lanes) == root / "agent-bridge" / "lanes.json"
+    assert Path(args.agent_heartbeats) == root / "agent-bridge" / "heartbeats.json"
+    assert Path(args.operator_steering_root) == root / "operator-steering"
+    assert (
+        Path(args.stale_terminal_owner_receipt_dir)
+        == root / "agent-bridge" / "conflict-resolution-receipts"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -269,6 +587,8 @@ def test_outbox_within_limits_ok(tmp_path: Path) -> None:
         _touch(outbox / f"item-{i}.json", age_hours=1)
     result = sentinel.check_outbox(outbox, max_items=50, max_age_days=7, now=NOW)
     assert result["status"] == "ok"
+    assert result["depth"] == 3
+    assert result["fingerprint"]
 
 
 def test_outbox_depth_above_max_breaches(tmp_path: Path) -> None:
@@ -278,6 +598,8 @@ def test_outbox_depth_above_max_breaches(tmp_path: Path) -> None:
     result = sentinel.check_outbox(outbox, max_items=3, max_age_days=7, now=NOW)
     assert result["status"] == "breach"
     assert "4" in result["detail"]
+    assert result["depth"] == 4
+    assert result["fingerprint"]
 
 
 def test_outbox_archive_subdir_excluded(tmp_path: Path) -> None:
@@ -295,6 +617,7 @@ def test_outbox_oldest_item_too_old_breaches(tmp_path: Path) -> None:
     result = sentinel.check_outbox(outbox, max_items=50, max_age_days=7, now=NOW)
     assert result["status"] == "breach"
     assert "ancient.json" in result["detail"]
+    assert "1 item(s) queued" in result["detail"]
 
 
 def test_outbox_missing_dir_is_ok(tmp_path: Path) -> None:
@@ -573,6 +896,109 @@ def test_lane_liveness_non_in_progress_ignored(tmp_path: Path) -> None:
     assert result["status"] == "ok"
 
 
+def test_lane_liveness_legacy_done_state_without_launched_at_ignored(tmp_path: Path) -> None:
+    tmp_path.mkdir(exist_ok=True)
+    (tmp_path / "laneOUTBOX.json").write_text(
+        json.dumps({"lane": "laneOUTBOX", "state": "done", "started_at": "2026-06-10T07:00:00Z"})
+    )
+
+    result = _liveness(tmp_path, heads={}, ahead={})
+
+    assert result["status"] == "ok"
+
+
+def test_lane_liveness_null_status_falls_back_to_legacy_state(tmp_path: Path) -> None:
+    tmp_path.mkdir(exist_ok=True)
+    (tmp_path / "laneOUTBOX.json").write_text(
+        json.dumps({"lane": "laneOUTBOX", "status": None, "state": "done"})
+    )
+
+    result = _liveness(tmp_path, heads={}, ahead={})
+
+    assert result["status"] == "ok"
+
+
+def test_lane_liveness_legacy_in_progress_uses_started_at(tmp_path: Path) -> None:
+    tmp_path.mkdir(exist_ok=True)
+    (tmp_path / "legacy-active.json").write_text(
+        json.dumps(
+            {
+                "lane": "q2",
+                "state": "in_progress",
+                "started_at": "2026-06-10T07:00:00Z",
+                "branch": "elves/run-x-q2",
+            }
+        )
+    )
+
+    result = _liveness(tmp_path, heads={"elves/run-x-q2": "aaa"}, ahead={"aaa": 0})
+
+    assert result["status"] == "breach"
+    assert "zero commits ahead" in result["detail"]
+
+
+def test_lane_liveness_legacy_parked_state_without_launched_at_ignored(tmp_path: Path) -> None:
+    tmp_path.mkdir(exist_ok=True)
+    (tmp_path / "lanePARITY.json").write_text(
+        json.dumps({"lane": "PARITY", "state": "parked_awaiting_human_settlement"})
+    )
+
+    result = _liveness(tmp_path, heads={}, ahead={})
+
+    assert result["status"] == "ok"
+
+
+def test_lane_liveness_missing_status_and_state_is_unknown(tmp_path: Path) -> None:
+    tmp_path.mkdir(exist_ok=True)
+    (tmp_path / "missing-status.json").write_text(
+        json.dumps(
+            {
+                "lane": "q2",
+                "launched_at": "2026-06-10T11:00:00Z",
+                "branch": "elves/run-x-q2",
+            }
+        )
+    )
+
+    result = _liveness(tmp_path, heads={"elves/run-x-q2": "aaa"}, ahead={"aaa": 0})
+
+    assert result["status"] == "unknown"
+    assert "missing-status.json" in result["detail"]
+
+
+def test_lane_liveness_pr_open_status_without_launched_at_ignored(tmp_path: Path) -> None:
+    tmp_path.mkdir(exist_ok=True)
+    (tmp_path / "lanePROD.json").write_text(json.dumps({"lane": "PROD", "status": "pr_open"}))
+
+    result = _liveness(tmp_path, heads={}, ahead={})
+
+    assert result["status"] == "ok"
+
+
+def test_lane_liveness_in_progress_missing_launched_at_is_unknown(tmp_path: Path) -> None:
+    tmp_path.mkdir(exist_ok=True)
+    (tmp_path / "missing-timestamp.json").write_text(
+        json.dumps({"lane": "q2", "status": "in_progress"})
+    )
+
+    result = _liveness(tmp_path, heads={}, ahead={})
+
+    assert result["status"] == "unknown"
+    assert "missing-timestamp.json" in result["detail"]
+
+
+def test_lane_liveness_in_progress_invalid_launched_at_is_unknown(tmp_path: Path) -> None:
+    tmp_path.mkdir(exist_ok=True)
+    (tmp_path / "invalid-timestamp.json").write_text(
+        json.dumps({"lane": "q2", "status": "in_progress", "launched_at": "not-a-time"})
+    )
+
+    result = _liveness(tmp_path, heads={}, ahead={})
+
+    assert result["status"] == "unknown"
+    assert "invalid-timestamp.json" in result["detail"]
+
+
 def test_lane_liveness_orphan_branch_breaches(tmp_path: Path) -> None:
     result = _liveness(
         tmp_path,
@@ -680,6 +1106,630 @@ def test_breach_replay_jun10_silent_lane_death(tmp_path: Path) -> None:
     result = _liveness(lanes, heads=heads, ahead=ahead, dates=dates)
     assert result["status"] == "breach"
     assert result["detail"].count("lane c0") == 3
+
+
+# ---------------------------------------------------------------------------
+# stale_terminal_owner (#8562: stale owners blocking terminal PRs)
+# ---------------------------------------------------------------------------
+
+
+def _write_json(path: Path, payload: Any) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def _stale_owner_result(
+    tmp_path: Path,
+    rows: list[dict[str, Any]],
+    *,
+    pr_state: dict[str, Any],
+    findings: list[dict[str, Any]] | None = None,
+    min_age_hours: float = 24.0,
+) -> Any:
+    registry = _write_json(tmp_path / "lanes.json", rows)
+    audit_calls: list[int] = []
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        assert repo_slug == "synaptent/aragora"
+        assert gh_bin == "gh"
+        return {"available": True, "number": pr, **pr_state}
+
+    def audit_terminal(**kwargs: Any) -> dict[str, Any]:
+        audit_calls.append(kwargs["pr"])
+        return {
+            "github_state": {"available": True, "state": "MERGED"},
+            "findings": findings if findings is not None else [],
+        }
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=min_age_hours,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+        terminal_owner_auditor=audit_terminal,
+    )
+    return result, audit_calls
+
+
+def _active_owner_row(**overrides: Any) -> dict[str, Any]:
+    row = {
+        "lane_id": "Q900-stale-terminal",
+        "owner_session": "codex-owner",
+        "status": "active",
+        "pr_number": 9001,
+        "branch": "codex/stale-terminal-demo",
+        "updated_at": "2026-06-08T12:00:00Z",
+    }
+    row.update(overrides)
+    return row
+
+
+def test_stale_terminal_owner_missing_registry_is_ok_skipped(tmp_path: Path) -> None:
+    result = sentinel.check_stale_terminal_owner(
+        tmp_path / "missing-lanes.json",
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("no PR state fetch")
+        ),
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
+    assert result["status"] == "ok"
+    assert "agent-bridge state absent" in result["detail"]
+
+
+def test_stale_terminal_owner_invalid_registry_stays_unknown(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("{not json", encoding="utf-8")
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("no PR state fetch")
+        ),
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
+    assert result["status"] == "unknown"
+    assert "lane registry unreadable" in result["detail"]
+
+
+def test_stale_terminal_owner_reports_safe_merged_pr_with_guarded_commands(
+    tmp_path: Path,
+) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [_active_owner_row()],
+        pr_state={
+            "state": "MERGED",
+            "merge_commit": "abc123",
+            "url": "https://github.test/pr/9001",
+        },
+        findings=[
+            {
+                "lane_id": "Q900-stale-terminal",
+                "owner_session": "codex-owner",
+                "terminal_safety_blockers": [],
+                "terminal_safety_details": {},
+            }
+        ],
+    )
+
+    assert result["status"] == "breach"
+    assert audit_calls == [9001]
+    assert result["candidates"][0] == {
+        "lane_id": "Q900-stale-terminal",
+        "pr_number": 9001,
+        "branch": "codex/stale-terminal-demo",
+        "owner_session": "codex-owner",
+        "age_hours": 48.0,
+        "terminal_state": "MERGED",
+        "terminal_url": "https://github.test/pr/9001",
+        "merge_commit": "abc123",
+        "terminal_safety_blockers": [],
+        "terminal_safety_details": {},
+        "reconciler_dry_run_command": result["candidates"][0]["reconciler_dry_run_command"],
+        "reconciler_apply_command": result["candidates"][0]["reconciler_apply_command"],
+    }
+    assert (
+        "resolve_lane_conflicts.py --merged-pr-lane-audit"
+        in result["candidates"][0]["reconciler_dry_run_command"]
+    )
+    assert "--expected-merge-commit abc123" in result["candidates"][0]["reconciler_apply_command"]
+    assert "--operator-authorized" in result["candidates"][0]["reconciler_apply_command"]
+    assert "--apply --json" in result["candidates"][0]["reconciler_apply_command"]
+
+
+def test_stale_terminal_owner_passes_repo_scoped_state_to_terminal_auditor(
+    tmp_path: Path,
+) -> None:
+    registry = _write_json(tmp_path / "lanes.json", [_active_owner_row()])
+    seen_state: dict[str, Any] = {}
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        assert repo_slug == "synaptent/aragora"
+        assert gh_bin == "gh"
+        return {
+            "available": True,
+            "number": pr,
+            "state": "MERGED",
+            "merge_commit": "repo-scoped-merge",
+            "url": "https://github.test/pr/9001",
+        }
+
+    def audit_terminal(**kwargs: Any) -> dict[str, Any]:
+        seen_state.update(kwargs["github_state"])
+        return {
+            "github_state": kwargs["github_state"],
+            "findings": [
+                {
+                    "lane_id": "Q900-stale-terminal",
+                    "owner_session": "codex-owner",
+                    "terminal_safety_blockers": [],
+                    "terminal_safety_details": {},
+                }
+            ],
+        }
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+        terminal_owner_auditor=audit_terminal,
+    )
+
+    assert seen_state["merge_commit"] == "repo-scoped-merge"
+    assert result["status"] == "breach"
+    assert (
+        "--expected-merge-commit repo-scoped-merge"
+        in result["candidates"][0]["reconciler_apply_command"]
+    )
+
+
+def test_stale_terminal_owner_suppresses_fresh_heartbeat_rows(tmp_path: Path) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [_active_owner_row()],
+        pr_state={"state": "MERGED", "merge_commit": "abc123"},
+        findings=[
+            {
+                "lane_id": "Q900-stale-terminal",
+                "owner_session": "codex-owner",
+                "terminal_safety_blockers": ["fresh_heartbeat"],
+                "terminal_safety_details": {"fresh_heartbeat_timestamps": ["2026-06-10T11:59:00Z"]},
+            }
+        ],
+    )
+
+    assert audit_calls == [9001]
+    assert result["status"] == "ok"
+    assert result["candidates"] == []
+    assert result["live_suppressed"][0]["terminal_safety_blockers"] == ["fresh_heartbeat"]
+
+
+def test_stale_terminal_owner_reports_api_unknown_as_unknown(tmp_path: Path) -> None:
+    registry = _write_json(tmp_path / "lanes.json", [_active_owner_row()])
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        return {"available": False, "number": pr, "state": "UNKNOWN", "error": "HTTP 502"}
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
+    assert result["status"] == "unknown"
+    assert "HTTP 502" in result["detail"]
+
+
+def test_stale_terminal_owner_reports_unsafe_mailbox_and_local_work_blockers(
+    tmp_path: Path,
+) -> None:
+    result, _ = _stale_owner_result(
+        tmp_path,
+        [
+            _active_owner_row(lane_id="Q-mailbox", owner_session="owner-mailbox"),
+            _active_owner_row(lane_id="Q-local-work", owner_session="owner-local-work"),
+        ],
+        pr_state={"state": "MERGED", "merge_commit": "abc123"},
+        findings=[
+            {
+                "lane_id": "Q-mailbox",
+                "owner_session": "owner-mailbox",
+                "terminal_safety_blockers": ["unread_mailbox"],
+                "terminal_safety_details": {"pending_mailbox_messages": ["message.json"]},
+            },
+            {
+                "lane_id": "Q-local-work",
+                "owner_session": "owner-local-work",
+                "terminal_safety_blockers": ["local_work_claim"],
+                "terminal_safety_details": {"local_work_claims": ["/tmp/work"]},
+            },
+        ],
+    )
+
+    assert result["status"] == "breach"
+    blockers = {
+        candidate["lane_id"]: candidate["terminal_safety_blockers"]
+        for candidate in result["candidates"]
+    }
+    assert blockers == {
+        "Q-mailbox": ["unread_mailbox"],
+        "Q-local-work": ["local_work_claim"],
+    }
+    assert all(not candidate["reconciler_apply_command"] for candidate in result["candidates"])
+
+
+def test_stale_terminal_owner_reports_closed_pr_without_apply_command(tmp_path: Path) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [_active_owner_row()],
+        pr_state={"state": "CLOSED", "merge_commit": "", "url": "https://github.test/pr/9001"},
+    )
+
+    assert audit_calls == []
+    assert result["status"] == "breach"
+    assert result["candidates"][0]["terminal_state"] == "CLOSED"
+    assert result["candidates"][0]["terminal_safety_blockers"] == ["closed_pr_manual_review"]
+    assert result["candidates"][0]["reconciler_dry_run_command"]
+    assert result["candidates"][0]["reconciler_apply_command"] == ""
+
+
+def test_default_pr_state_fetcher_times_out_fail_closed(monkeypatch: Any) -> None:
+    def run_timeout(*args: Any, **kwargs: Any) -> Any:
+        raise subprocess.TimeoutExpired(cmd=kwargs.get("args", ["gh"]), timeout=0.01)
+
+    monkeypatch.setattr(sentinel.subprocess, "run", run_timeout)
+
+    result = sentinel._default_pr_state_fetcher(
+        9001,
+        repo_slug="synaptent/aragora",
+        gh_bin="gh",
+        timeout_seconds=0.01,
+    )
+
+    assert result["available"] is False
+    assert result["state"] == "UNKNOWN"
+    assert "TimeoutExpired" in result["error"]
+
+
+def test_default_pr_state_fetcher_rejects_unsafe_repo_slug(monkeypatch: Any) -> None:
+    def run_should_not_execute(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("unsafe repo slug must not reach subprocess")
+
+    monkeypatch.setattr(sentinel.subprocess, "run", run_should_not_execute)
+
+    result = sentinel._default_pr_state_fetcher(
+        9001,
+        repo_slug="synaptent/aragora --json files",
+        gh_bin="gh",
+    )
+
+    assert result["available"] is False
+    assert "repo_slug" in result["error"]
+    assert result["command"] == []
+
+
+def test_default_pr_state_fetcher_rejects_unsafe_gh_bin(monkeypatch: Any) -> None:
+    def run_should_not_execute(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("unsafe gh_bin must not reach subprocess")
+
+    monkeypatch.setattr(sentinel.subprocess, "run", run_should_not_execute)
+
+    result = sentinel._default_pr_state_fetcher(
+        9001,
+        repo_slug="synaptent/aragora",
+        gh_bin="sh -c gh",
+    )
+
+    assert result["available"] is False
+    assert "gh_bin" in result["error"]
+    assert result["command"] == []
+
+
+def test_validate_gh_bin_accepts_absolute_gh_executable(tmp_path: Path) -> None:
+    gh = tmp_path / "gh"
+    gh.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    gh.chmod(0o755)
+
+    assert sentinel._validate_gh_bin(str(gh)) == str(gh.resolve())
+
+
+def test_validate_gh_bin_accepts_absolute_executable_wrapper(tmp_path: Path) -> None:
+    wrapper = tmp_path / "gh-wrapper"
+    wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    wrapper.chmod(0o755)
+
+    assert sentinel._validate_gh_bin(str(wrapper)) == str(wrapper.resolve())
+
+
+def test_validate_gh_bin_accepts_relative_executable_wrapper(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    wrapper = tools / "gh"
+    wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    wrapper.chmod(0o755)
+    monkeypatch.chdir(tmp_path)
+
+    assert sentinel._validate_gh_bin("./tools/gh") == str(wrapper.resolve())
+
+
+def test_split_operator_command_rejects_malformed_template() -> None:
+    try:
+        sentinel._split_operator_command(
+            'gh auth status "unterminated', option_name="--gh-auth-cmd"
+        )
+    except ValueError as exc:
+        assert "--gh-auth-cmd" in str(exc)
+    else:
+        raise AssertionError("malformed command template was accepted")
+
+
+def test_stale_terminal_owner_rejects_invalid_repo_before_fetch(tmp_path: Path) -> None:
+    registry = _write_json(tmp_path / "lanes.json", [_active_owner_row()])
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="../aragora",
+        pr_state_fetcher=lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("invalid repo_slug must not reach fetcher")
+        ),
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
+    assert result["status"] == "unknown"
+    assert "invalid GitHub CLI configuration" in result["detail"]
+
+
+def test_resolver_loader_rejects_untrusted_scripts_dir(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setattr(sentinel, "_RESOLVER_MODULE", None)
+    (tmp_path / "resolve_lane_conflicts.py").write_text(
+        "ACTIVE_STATUSES = set()\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(sentinel, "SCRIPTS_DIR", tmp_path)
+
+    try:
+        sentinel._trusted_resolver_path()
+    except RuntimeError as exc:
+        assert "scripts directory does not match canonical repo" in str(exc)
+    else:
+        raise AssertionError("untrusted resolver scripts directory was accepted")
+
+
+def test_stale_terminal_owner_unknown_timestamp_precedes_stale_rows(tmp_path: Path) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [
+            _active_owner_row(lane_id="Q-stale", owner_session="owner-stale"),
+            _active_owner_row(
+                lane_id="Q-no-time",
+                owner_session="owner-no-time",
+                updated_at="",
+            ),
+        ],
+        pr_state={"state": "CLOSED", "merge_commit": "", "url": "https://github.test/pr/9001"},
+    )
+
+    assert audit_calls == []
+    assert result["status"] == "unknown"
+    assert "no comparable timestamp" in result["detail"]
+    assert result["candidates"][0]["lane_id"] == "Q-stale"
+
+
+def test_stale_terminal_owner_missing_audit_finding_blocks_apply(tmp_path: Path) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [_active_owner_row()],
+        pr_state={
+            "state": "MERGED",
+            "merge_commit": "abc123",
+            "url": "https://github.test/pr/9001",
+        },
+        findings=[],
+    )
+
+    assert audit_calls == [9001]
+    assert result["status"] == "breach"
+    assert result["candidates"][0]["terminal_safety_blockers"] == ["missing_reconciler_finding"]
+    assert result["candidates"][0]["reconciler_apply_command"] == ""
+
+
+def test_stale_terminal_owner_uses_resolver_active_statuses(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    class FakeResolver:
+        ACTIVE_STATUSES = {"leased"}
+
+    monkeypatch.setattr(sentinel, "_load_resolver_module", lambda: FakeResolver())
+    registry = _write_json(
+        tmp_path / "lanes.json",
+        [_active_owner_row(status="leased")],
+    )
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        return {
+            "available": True,
+            "number": pr,
+            "state": "CLOSED",
+            "merge_commit": "",
+            "url": "https://github.test/pr/9001",
+        }
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
+    assert result["status"] == "breach"
+    assert result["candidates"][0]["terminal_safety_blockers"] == ["closed_pr_manual_review"]
+
+
+def test_default_terminal_owner_auditor_uses_no_lock_read_only_path(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    class FakeResolver:
+        ACTIVE_STATUSES = {"active"}
+
+        def _utc_now_iso(self) -> str:
+            return "2026-06-10T12:00:00Z"
+
+        def _parse_timestamp(self, value: str) -> float:
+            return NOW.timestamp()
+
+        def _fetch_pr_state(self, *, pr: int, gh_bin: str) -> dict[str, Any]:
+            raise AssertionError("sentinel must reuse its repo-scoped PR state")
+
+        def _read_rows_checked(self, path: Path) -> tuple[list[dict[str, Any]], str | None]:
+            if path.name == "lanes.json":
+                return [_active_owner_row()], None
+            return [], None
+
+        def _active_pr_lane_findings(
+            self,
+            rows: list[dict[str, Any]],
+            *,
+            pr: int,
+        ) -> list[dict[str, Any]]:
+            return [
+                {
+                    "lane_id": "Q900-stale-terminal",
+                    "owner_session": "codex-owner",
+                }
+            ]
+
+        def _annotate_terminal_safety(
+            self,
+            findings: list[dict[str, Any]],
+            **kwargs: Any,
+        ) -> list[dict[str, Any]]:
+            return [
+                {
+                    **finding,
+                    "terminal_safety_blockers": [],
+                    "terminal_safety_details": {},
+                    "apply_safe": True,
+                }
+                for finding in findings
+            ]
+
+        def _merged_pr_audit_blocked_reason(self, **kwargs: Any) -> str:
+            assert "expected_closed_at" in kwargs
+            assert "expected_head_sha" in kwargs
+            return ""
+
+        def _base_merged_pr_audit_result(self, **kwargs: Any) -> dict[str, Any]:
+            assert "expected_closed_at" in kwargs
+            assert "expected_head_sha" in kwargs
+            return {
+                "github_state": kwargs["github_state"],
+                "findings": kwargs["findings"],
+                "blocked_reason": kwargs["blocked_reason"],
+                "apply_eligible": False,
+            }
+
+        def audit_merged_pr_lanes(self, **kwargs: Any) -> dict[str, Any]:
+            raise AssertionError("sentinel must not enter resolver write-lock audit")
+
+    monkeypatch.setattr(sentinel, "_load_resolver_module", lambda: FakeResolver())
+
+    result = sentinel._default_terminal_owner_auditor(
+        pr=9001,
+        github_state={"available": True, "state": "MERGED", "merge_commit": "abc123"},
+        registry_path=tmp_path / "lanes.json",
+        receipt_dir=tmp_path / "receipts",
+        gh_bin="gh",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        heartbeat_fresh_seconds=900,
+    )
+
+    assert result["github_state"]["state"] == "MERGED"
+    assert result["github_state"]["mergeCommit"] == "abc123"
+    assert result["findings"][0]["terminal_safety_blockers"] == []
+
+
+def test_stale_terminal_owner_default_auditor_uses_real_resolver_module(
+    tmp_path: Path,
+) -> None:
+    sentinel._RESOLVER_MODULE = None
+    registry = _write_json(tmp_path / "lanes.json", [_active_owner_row()])
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        assert pr == 9001
+        assert repo_slug == "synaptent/aragora"
+        assert gh_bin == "gh"
+        return {
+            "available": True,
+            "number": pr,
+            "state": "MERGED",
+            "merge_commit": "real-resolver-merge",
+            "url": "https://github.test/pr/9001",
+        }
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+    )
+
+    assert result["status"] == "breach"
+    candidate = result["candidates"][0]
+    assert candidate["lane_id"] == "Q900-stale-terminal"
+    assert candidate["terminal_safety_blockers"] == []
+    assert "--expected-merge-commit real-resolver-merge" in candidate["reconciler_apply_command"]
 
 
 # ---------------------------------------------------------------------------
@@ -1247,8 +2297,50 @@ def test_main_trail_reconcile_wired_end_to_end(tmp_path: Path, capsys: Any) -> N
     # available; before lane TA merges it degrades to unknown (exit 2), after
     # TA merges this replica replay must breach (exit 1). Both are alarm
     # states — never 0.
-    assert code in (1, 2)
     assert check["status"] in ("breach", "unknown")
+    assert code in (1, 2)
+
+
+def test_github_witness_events_rejects_invalid_repo_slug_before_capture() -> None:
+    def capture_should_not_run(cmd: list[str]) -> str:
+        raise AssertionError("invalid repo slug must not reach gh api")
+
+    try:
+        sentinel._github_witness_events(
+            "synaptent/aragora --json files", capture=capture_should_not_run
+        )
+    except ValueError as exc:
+        assert "repo_slug" in str(exc)
+    else:
+        raise AssertionError("invalid witness repo slug was accepted")
+
+
+def test_main_trail_reconcile_invalid_repo_slug_is_structured_unknown(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    code = sentinel.main(
+        [
+            "--json",
+            "--no-ledger",
+            "--now",
+            "2026-06-10T12:00:00Z",
+            "--checks",
+            "trail_reconcile",
+            "--trail-witness-repo",
+            "synaptent/aragora --json files",
+            "--trail-chain",
+            str(tmp_path / "intent-chain.jsonl"),
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 2
+    check = report["checks"][0]
+    assert check["status"] == "unknown"
+    assert "witness unreadable" in check["detail"]
+    assert "repo_slug" in check["detail"]
+    assert "check crashed" not in check["detail"]
 
 
 def test_main_trail_reconcile_replica_chain_reader_fallback(tmp_path: Path, capsys: Any) -> None:
@@ -1398,3 +2490,239 @@ def test_trail_reconcile_real_chain_tamper_detected(tmp_path: Path) -> None:
     assert result["status"] == "breach"
     assert "tampered" in result["detail"]
     assert "seq 0" in result["detail"]
+
+
+# ---------------------------------------------------------------------------
+# outbox_drain_progress (circuit-breaker — §Conductor)
+# ---------------------------------------------------------------------------
+
+
+def _outbox_fingerprint(path: Path) -> str:
+    return sentinel._outbox_fingerprint(sorted(path.glob("*.json")))
+
+
+def _ledger_with_depths(path: Path, depths: list[int], *, fingerprint: str | None = None) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = []
+    for d in depths:
+        check = {"check": "outbox_depth", "status": "ok", "detail": f"{d} item(s) queued"}
+        if fingerprint is not None:
+            check["fingerprint"] = fingerprint
+        lines.append(json.dumps({"checks": [check]}))
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def _ledger_with_checks(path: Path, checks_by_cycle: list[list[dict[str, Any]]]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [json.dumps({"checks": checks}) for checks in checks_by_cycle]
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def _outbox_with(path: Path, count: int) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    for i in range(count):
+        (path / f"item-{i}.json").write_text("{}")
+    return path
+
+
+def test_outbox_drain_progress_stalled_breaches(tmp_path: Path) -> None:
+    # Depth non-decreasing at/above the floor across the window, still congested now.
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    ledger = _ledger_with_depths(
+        tmp_path / "ledger.jsonl", [50, 52, 55], fingerprint=_outbox_fingerprint(outbox)
+    )
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "breach"
+    assert "not draining" in r["detail"] and "dead-letter" in r["detail"]
+
+
+def test_outbox_drain_progress_draining_is_ok(tmp_path: Path) -> None:
+    # Depth fell over the window -> the loop is making external progress.
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [60, 55, 52])
+    outbox = _outbox_with(tmp_path / "outbox", 50)
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "ok"
+
+
+def test_outbox_drain_progress_live_drop_is_ok(tmp_path: Path) -> None:
+    # Rising prior history alone is not a stall when the live depth has dropped.
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [50, 55, 60])
+    outbox = _outbox_with(tmp_path / "outbox", 51)
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "ok"
+    assert "draining or fluctuating" in r["detail"]
+
+
+def test_outbox_drain_progress_refilled_after_small_drop_breaches(tmp_path: Path) -> None:
+    # A temporary one-cycle dip does not prove progress if live depth refills.
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    ledger = _ledger_with_depths(
+        tmp_path / "ledger.jsonl", [55, 54, 55], fingerprint=_outbox_fingerprint(outbox)
+    )
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "breach"
+    assert "net backlog progress" in r["detail"]
+
+
+def test_outbox_drain_progress_uses_structured_depth(tmp_path: Path) -> None:
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    fingerprint = _outbox_fingerprint(outbox)
+    ledger = _ledger_with_checks(
+        tmp_path / "ledger.jsonl",
+        [
+            [
+                {
+                    "check": "outbox_depth",
+                    "status": "ok",
+                    "depth": 50,
+                    "fingerprint": fingerprint,
+                    "detail": "fifty queued",
+                }
+            ],
+            [
+                {
+                    "check": "outbox_depth",
+                    "status": "ok",
+                    "depth": 52,
+                    "fingerprint": fingerprint,
+                    "detail": "fifty-two queued",
+                }
+            ],
+            [
+                {
+                    "check": "outbox_depth",
+                    "status": "ok",
+                    "depth": 55,
+                    "fingerprint": fingerprint,
+                    "detail": "fifty-five queued",
+                }
+            ],
+        ],
+    )
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "breach"
+
+
+def test_outbox_drain_progress_saturated_throughput_is_ok(tmp_path: Path) -> None:
+    ledger = _ledger_with_checks(
+        tmp_path / "ledger.jsonl",
+        [
+            [{"check": "outbox_depth", "status": "ok", "depth": 50, "fingerprint": "fp-a"}],
+            [{"check": "outbox_depth", "status": "ok", "depth": 51, "fingerprint": "fp-b"}],
+            [{"check": "outbox_depth", "status": "ok", "depth": 50, "fingerprint": "fp-c"}],
+        ],
+    )
+    outbox = _outbox_with(tmp_path / "outbox", 50)
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "ok"
+    assert "throughput" in r["detail"]
+
+
+def test_outbox_drain_progress_stable_depth_without_fingerprint_is_unknown(tmp_path: Path) -> None:
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [50, 50, 50])
+    outbox = _outbox_with(tmp_path / "outbox", 50)
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "unknown"
+    assert "fingerprints" in r["detail"]
+
+
+def test_outbox_drain_progress_unusable_history_is_unknown(tmp_path: Path) -> None:
+    ledger = _ledger_with_checks(
+        tmp_path / "ledger.jsonl",
+        [
+            [{"check": "outbox_depth", "status": "ok", "detail": "queued but not numeric"}],
+            [{"check": "other_check", "status": "ok", "detail": "not depth"}],
+            [{"check": "outbox_depth", "status": "ok", "detail": "still not numeric"}],
+        ],
+    )
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "unknown"
+    assert "usable outbox_depth" in r["detail"]
+
+
+def test_outbox_drain_progress_missing_recent_cycle_is_unknown(tmp_path: Path) -> None:
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    fingerprint = _outbox_fingerprint(outbox)
+    ledger = _ledger_with_checks(
+        tmp_path / "ledger.jsonl",
+        [
+            [{"check": "outbox_depth", "status": "ok", "depth": 40, "fingerprint": "old"}],
+            [{"check": "other_check", "status": "ok", "detail": "not depth"}],
+            [{"check": "outbox_depth", "status": "ok", "depth": 55, "fingerprint": fingerprint}],
+            [{"check": "outbox_depth", "status": "ok", "depth": 55, "fingerprint": fingerprint}],
+        ],
+    )
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "unknown"
+    assert "last 3 ledger cycle" in r["detail"]
+
+
+def test_outbox_drain_progress_invalid_stall_cycles_is_unknown(tmp_path: Path) -> None:
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [50, 52, 55])
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=0, min_floor=50)
+    assert r["status"] == "unknown"
+    assert "must be >= 1" in r["detail"]
+
+
+def test_outbox_drain_progress_flat_stuck_breaches(tmp_path: Path) -> None:
+    # Flat at the floor across the window, current equals the most recent reading -> breach.
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    ledger = _ledger_with_depths(
+        tmp_path / "ledger.jsonl", [55, 55, 55], fingerprint=_outbox_fingerprint(outbox)
+    )
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "breach"
+    assert "not draining" in r["detail"] and "dead-letter" in r["detail"]
+
+
+def test_outbox_drain_progress_recovering_is_ok(tmp_path: Path) -> None:
+    # Window stayed at/above the floor, but current depth fell below the most recent
+    # reading -> the loop is improving, no breach.
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [50, 52, 55])
+    outbox = _outbox_with(tmp_path / "outbox", 54)  # 54 < window[-1] (55) -> improving
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "ok"
+
+
+def test_outbox_drain_progress_slow_drain_is_ok(tmp_path: Path) -> None:
+    # Depth fell steadily over the window and is still falling -> external progress.
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [60, 58, 56])
+    outbox = _outbox_with(tmp_path / "outbox", 54)  # 54 < window[-1] (56) -> draining
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "ok"
+
+
+def test_outbox_drain_progress_slow_drain_with_brief_pause_is_ok(tmp_path: Path) -> None:
+    # The full window shows external progress; a single flat current reading is
+    # not enough to declare the drain loop stuck.
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [60, 58, 56])
+    outbox = _outbox_with(tmp_path / "outbox", 56)
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "ok"
+
+
+def test_outbox_drain_progress_below_floor_is_ok(tmp_path: Path) -> None:
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [50, 52, 55])
+    outbox = _outbox_with(tmp_path / "outbox", 10)  # below floor -> not congested
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "ok"
+    assert "below floor" in r["detail"]
+
+
+def test_outbox_drain_progress_insufficient_history_is_ok(tmp_path: Path) -> None:
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [50])  # only one prior cycle
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "ok"
+
+
+def test_outbox_drain_progress_no_ledger_is_ok(tmp_path: Path) -> None:
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    r = sentinel.check_outbox_drain_progress(
+        tmp_path / "absent.jsonl", outbox, stall_cycles=3, min_floor=50
+    )
+    assert r["status"] == "ok"

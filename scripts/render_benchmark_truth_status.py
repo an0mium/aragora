@@ -56,11 +56,28 @@ def _load_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _positive_revision(value: Any, *, path: Path) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"Corpus at {path} must contain a positive integer revision")
+    try:
+        revision = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Corpus at {path} must contain a positive integer revision") from exc
+    if revision <= 0:
+        raise ValueError(f"Corpus at {path} must contain a positive integer revision")
+    return revision
+
+
 def load_corpus(path: Path) -> dict[str, Any]:
     payload = _load_json(path)
     issues = payload.get("issues")
     if not isinstance(issues, list) or not issues:
         raise ValueError(f"Corpus at {path} must contain a non-empty 'issues' list")
+    corpus_id = str(payload.get("corpus_id") or "").strip()
+    if not corpus_id:
+        raise ValueError(f"Corpus at {path} must contain a non-empty corpus_id")
+    payload["corpus_id"] = corpus_id
+    payload["revision"] = _positive_revision(payload.get("revision"), path=path)
     return payload
 
 
@@ -283,18 +300,49 @@ def _render_issue_drafts(drafts: list[dict[str, Any]]) -> list[str]:
     ] or ["- none"]
 
 
+def _proxy_count(value: Any, *, field: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"proxy metric `{field}` must be an integer count")
+    if value < 0:
+        raise ValueError(f"proxy metric `{field}` must be non-negative")
+    return value
+
+
 def _normalize_proxy_metrics(payload: dict[str, Any]) -> dict[str, Any]:
     proxy_metrics = dict(payload)
     terminal_class_distribution = dict(proxy_metrics.get("terminal_class_distribution") or {})
 
-    if "unique_issues_neutral" not in proxy_metrics:
-        attempted = proxy_metrics.get("unique_issues_attempted")
-        succeeded = proxy_metrics.get("unique_issues_succeeded")
-        failed = proxy_metrics.get("unique_issues_failed")
-        if all(isinstance(value, (int, float)) for value in (attempted, succeeded, failed)):
-            proxy_metrics["unique_issues_neutral"] = max(
-                int(attempted) - int(succeeded) - int(failed),
-                0,
+    attempted = _proxy_count(
+        proxy_metrics.get("unique_issues_attempted"),
+        field="unique_issues_attempted",
+    )
+    succeeded = _proxy_count(
+        proxy_metrics.get("unique_issues_succeeded"),
+        field="unique_issues_succeeded",
+    )
+    failed = _proxy_count(
+        proxy_metrics.get("unique_issues_failed"),
+        field="unique_issues_failed",
+    )
+    if attempted is not None and succeeded is not None and failed is not None:
+        neutral = _proxy_count(
+            proxy_metrics.get("unique_issues_neutral"),
+            field="unique_issues_neutral",
+        )
+        expected_neutral = attempted - succeeded - failed
+        if expected_neutral < 0:
+            raise ValueError(
+                "proxy metrics inconsistent: unique_issues_succeeded + "
+                "unique_issues_failed exceeds unique_issues_attempted"
+            )
+        if neutral is None:
+            proxy_metrics["unique_issues_neutral"] = expected_neutral
+        elif neutral != expected_neutral:
+            raise ValueError(
+                "proxy metrics inconsistent: unique_issues_neutral must equal "
+                "unique_issues_attempted - unique_issues_succeeded - unique_issues_failed"
             )
 
     if "neutral_classes" not in proxy_metrics and terminal_class_distribution:
@@ -422,6 +470,34 @@ def render_status_markdown(
             f"| Merged-only rate | {_format_percent(truth_metrics.get('merged_only_rate'))} |",
         ]
     )
+    proxy_attempted = proxy_metrics.get("unique_issues_attempted")
+    all_neutral_window = (
+        isinstance(proxy_attempted, int)
+        and proxy_attempted > 0
+        and proxy_metrics.get("unique_issues_succeeded") == 0
+        and proxy_metrics.get("unique_issues_failed") == 0
+        and proxy_metrics.get("unique_issues_neutral") == proxy_attempted
+    )
+    if all_neutral_window:
+        preamble = (
+            "the verified rates above reflect the previously graduated cohort, "
+            "not fresh autonomy proof. All "
+            f"`{proxy_attempted}`/`{proxy_attempted}` proxy corpus rows in the "
+            "current window were neutral with `0` fresh successes"
+        )
+        corpus_exhausted = bool(neutral_classes) and set(neutral_classes) == {
+            "issue_already_resolved"
+        }
+        if corpus_exhausted:
+            note = (
+                f"Corpus exhaustion note: {preamble} (`issue_already_resolved`) — "
+                "corpus revision "
+                f"`{_format_value(corpus.get('revision'))}` is exhausted and "
+                "generates no new execution evidence until the corpus is restocked."
+            )
+        else:
+            note = f"Freshness note: {preamble} — this window produced no fresh execution evidence."
+        lines.extend(["", note])
     if in_flight_metrics:
         lines.extend(
             [

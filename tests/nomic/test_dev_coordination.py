@@ -193,6 +193,53 @@ def test_claim_lease_detects_existing_fleet_claim(store: DevCoordinationStore) -
     assert exc_info.value.conflicts[0]["source"] == "fleet_claim"
 
 
+def test_claim_lease_detects_existing_fleet_claim_overlapping_allowed_glob(
+    store: DevCoordinationStore,
+) -> None:
+    store.fleet_store.claim_paths(
+        session_id="external-session",
+        paths=["aragora/server/auth_checks.py"],
+        branch="codex/external",
+    )
+
+    with pytest.raises(LeaseConflictError) as exc_info:
+        store.claim_lease(
+            task_id="clb-fleet-glob",
+            title="Server-wide auth hardening",
+            owner_agent="codex",
+            owner_session_id="sess-local",
+            branch="codex/local",
+            worktree_path="/tmp/wt-local",
+            allowed_globs=["aragora/server/**"],
+        )
+
+    conflict = exc_info.value.conflicts[0]
+    assert conflict["source"] == "fleet_claim"
+    assert conflict["path"] == "aragora/server/auth_checks.py"
+
+
+def test_claim_lease_allows_existing_fleet_claim_outside_allowed_glob(
+    store: DevCoordinationStore,
+) -> None:
+    store.fleet_store.claim_paths(
+        session_id="external-session",
+        paths=["aragora/server/auth_checks.py"],
+        branch="codex/external",
+    )
+
+    lease = store.claim_lease(
+        task_id="clb-fleet-disjoint-glob",
+        title="Frontend polish",
+        owner_agent="codex",
+        owner_session_id="sess-local",
+        branch="codex/local",
+        worktree_path="/tmp/wt-local",
+        allowed_globs=["aragora/live/src/**"],
+    )
+
+    assert lease.is_active is True
+
+
 def test_claim_lease_reaps_stale_fleet_claim_conflicts(store: DevCoordinationStore) -> None:
     store.fleet_store.claim_paths(
         session_id="external-session",

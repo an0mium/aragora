@@ -7,7 +7,7 @@ from aragora.implement.types import ImplementPlan, ImplementTask
 from aragora.pipeline.decision_plan import ApprovalMode, DecisionPlan, PlanStatus
 from aragora.pipeline.decision_plan.memory import PlanOutcome
 from aragora.pipeline.execution_mode import ExecutionMode
-from aragora.server.decision_integrity_utils import (
+from aragora.pipeline.decision_integrity_utils import (
     _normalize_execution_request_for_safety_mode,
     build_decision_integrity_payload,
     extract_execution_overrides,
@@ -114,15 +114,15 @@ async def test_build_payload_executes_hybrid(monkeypatch):
 
     with (
         patch(
-            "aragora.server.decision_integrity_utils.ensure_decision_plan_backbone_run",
+            "aragora.pipeline.decision_integrity_utils.ensure_decision_plan_backbone_run",
             return_value="run-di-1",
         ),
         patch(
-            "aragora.server.decision_integrity_utils.sync_decision_plan_backbone_receipt",
+            "aragora.pipeline.decision_integrity_utils.sync_decision_plan_backbone_receipt",
             return_value=True,
         ),
         patch(
-            "aragora.server.decision_integrity_utils.execute_decision_plan_with_backbone",
+            "aragora.pipeline.decision_integrity_utils.execute_decision_plan_with_backbone",
             new=AsyncMock(return_value=(launch, outcome)),
         ) as mock_execute,
     ):
@@ -225,15 +225,15 @@ async def test_build_payload_downgrades_interactive_workflow_execute_to_request_
 
     with (
         patch(
-            "aragora.server.decision_integrity_utils.ensure_decision_plan_backbone_run",
+            "aragora.pipeline.decision_integrity_utils.ensure_decision_plan_backbone_run",
             return_value="run-di-2",
         ),
         patch(
-            "aragora.server.decision_integrity_utils.sync_decision_plan_backbone_receipt",
+            "aragora.pipeline.decision_integrity_utils.sync_decision_plan_backbone_receipt",
             return_value=True,
         ),
         patch(
-            "aragora.server.decision_integrity_utils.execute_decision_plan_with_backbone",
+            "aragora.pipeline.decision_integrity_utils.execute_decision_plan_with_backbone",
             new=AsyncMock(),
         ) as mock_execute,
         patch(
@@ -334,15 +334,15 @@ async def test_build_payload_downgrades_interactive_execute_to_request_approval(
 
     with (
         patch(
-            "aragora.server.decision_integrity_utils.ensure_decision_plan_backbone_run",
+            "aragora.pipeline.decision_integrity_utils.ensure_decision_plan_backbone_run",
             return_value="run-di-3",
         ),
         patch(
-            "aragora.server.decision_integrity_utils.sync_decision_plan_backbone_receipt",
+            "aragora.pipeline.decision_integrity_utils.sync_decision_plan_backbone_receipt",
             return_value=True,
         ),
         patch(
-            "aragora.server.decision_integrity_utils.execute_decision_plan_with_backbone",
+            "aragora.pipeline.decision_integrity_utils.execute_decision_plan_with_backbone",
             new=AsyncMock(),
         ) as mock_execute,
         patch(

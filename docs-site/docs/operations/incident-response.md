@@ -48,16 +48,16 @@ git log --oneline -10
 - Status: Investigating
 - Impact: {User-facing impact}
 - ETA: Under investigation
-- IC: @\{name\}
+- IC: @{name}
 ```
 
 **Follow-up (every 30 min for SEV-1/2):**
 ```
-[UPDATE] SEV-X: \{Description\}
+[UPDATE] SEV-X: {Description}
 - Status: {Investigating|Identified|Mitigating|Resolved}
 - Root cause: {If known}
 - ETA: {If known}
-- Next update: \{time\}
+- Next update: {time}
 ```
 
 ### 4. Escalation Matrix
@@ -95,11 +95,11 @@ kubectl delete pod -l app=aragora-api -n aragora
 ## Postmortem Template
 
 ```markdown
-## Incident: \{Title\}
-**Date:** \{Date\}
-**Duration:** \{Minutes\}
-**Severity:** SEV-\{X\}
-**IC:** \{Name\}
+## Incident: {Title}
+**Date:** {Date}
+**Duration:** {Minutes}
+**Severity:** SEV-{X}
+**IC:** {Name}
 
 ### Summary
 {One paragraph description}
@@ -107,20 +107,20 @@ kubectl delete pod -l app=aragora-api -n aragora
 ### Timeline
 | Time | Event |
 |------|-------|
-| HH:MM | \{Event\} |
+| HH:MM | {Event} |
 
 ### Root Cause
 {Technical explanation}
 
 ### Impact
-- Users affected: \{number\}
+- Users affected: {number}
 - Revenue impact: {if applicable}
 - SLA impact: {yes/no}
 
 ### Action Items
 | Item | Owner | Due Date |
 |------|-------|----------|
-| \{Action\} | @\{name\} | \{date\} |
+| {Action} | @{name} | {date} |
 
 ### Lessons Learned
 - What went well

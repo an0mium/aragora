@@ -37,10 +37,19 @@ from datetime import datetime, timezone
 import re
 from typing import Final
 
-# Mirrors aragora/cli/commands/review_queue.py::_tier_requirement. This is a
-# read-only *diagnostic* mapping used only to render the "next action" hint; it
+# Read-only *diagnostic* mapping used only to render the "next action" hint; it
 # never gates a merge. Tuple = (required_model_signals, requires_dogfood,
-# requires_human_settlement). Kept tiny and annotated so drift is obvious.
+# requires_human_settlement). This is the strict-regime (default-OFF) projection of
+# the canonical QuorumPolicy (aragora.swarm.quorum_evidence.tier_quorum_rule). It is
+# a literal (not a module-load derivation) only because quorum_evidence imports this
+# module transitively via merge_quorum_io — a runtime derivation would be a circular
+# import. Drift from the policy is prevented by test_tiered_merge_gate_quorum_policy::
+# test_reconcile_diagnostic_matches_policy, which asserts equality against
+# tier_quorum_rule(tier, tiered_gate=False) (claude/Codex #8507 single-source).
+# NOTE: summarize_settlement sources the LIVE signal *count* (and the western-frontier
+# constraint) from the flag-aware tier_quorum_rule so the diagnostic mirrors the gate
+# under ARAGORA_ENABLE_TIERED_MERGE_GATE; this table supplies only the flag-independent
+# dogfood/human-settlement requirements and serves as the strict-regime pin.
 TIER_REQUIREMENTS: Final[dict[int, tuple[int, bool, bool]]] = {
     0: (1, False, False),
     1: (2, True, False),
@@ -88,12 +97,22 @@ class EvidenceComment:
             or ``""`` when the comment does not count.
         is_dogfood: Whether the comment contributes adversarial-dogfood
             evidence (``evidence-lint`` returned non-empty ``dogfood_evidence``).
+        reviewer_signals: Distinct model families carried by GENUINE
+            model-review signal items (``evidence-lint``'s ``reviewer_signals``
+            list, never ``dogfood_evidence``). ``reviewer_id`` can be
+            dogfood-attributed, so it must not feed requirements that the live
+            gate derives from review signals only (the western-frontier check).
+            ``None`` means provenance is unknown (legacy/hand-built records):
+            consumers fall back to ``reviewer_id`` so pre-provenance callers
+            keep their behavior; ``()`` affirmatively means "no genuine
+            reviewer signal" (e.g. a dogfood-only comment).
     """
 
     created_at: str
     would_count: bool
     reviewer_id: str = ""
     is_dogfood: bool = False
+    reviewer_signals: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -108,13 +127,20 @@ class QuorumRun:
 
 @dataclass(frozen=True)
 class RerunDecision:
-    """Whether A1 should re-run the gate for a PR."""
+    """Whether A1 should re-run the gate for a PR.
+
+    ``needs_adjudication`` is set when the per-PR round budget is exhausted:
+    the correct next step is a net-value adjudication decision (merge-as-is /
+    one bounded round / close / restructure), not another rerun. Callers use
+    this structured flag instead of sniffing the reason string.
+    """
 
     pr_number: int
     should_rerun: bool
     reason: str
     run_id: int | None = None
     next_prompt: str = ""
+    needs_adjudication: bool = False
 
 
 @dataclass(frozen=True)
@@ -170,6 +196,29 @@ def counted_reviewer_ids(comments: list[EvidenceComment]) -> list[str]:
     return sorted(ids)
 
 
+def counted_reviewer_signal_families(comments: list[EvidenceComment]) -> set[str]:
+    """Distinct counted families backed by GENUINE model-review signals.
+
+    Mirrors the live gate's signal-only derivation (review_queue computes
+    ``has_western_frontier_signal`` from ``reviewer_signals`` with an EMPTY
+    dogfood list), so a dogfood-only counted identity never satisfies a
+    review-signal requirement. Provenance-unaware records
+    (``reviewer_signals is None`` — legacy or hand-built) fall back to
+    ``reviewer_id`` so existing callers keep their behavior; an explicit empty
+    tuple affirmatively means "no genuine reviewer signal".
+    """
+    families: set[str] = set()
+    for comment in comments:
+        if not comment.would_count:
+            continue
+        if comment.reviewer_signals is None:
+            if comment.reviewer_id:
+                families.add(comment.reviewer_id)
+            continue
+        families.update(family for family in comment.reviewer_signals if family)
+    return families
+
+
 def plan_rerun(
     *,
     pr_number: int,
@@ -182,11 +231,20 @@ def plan_rerun(
     cooldown_seconds: int = 600,
     max_reruns_per_head: int = 3,
     has_real_required_failure: bool = False,
+    pr_rounds_consumed: int = 0,
+    pr_round_budget: int = 0,
 ) -> RerunDecision:
     """Decide whether to re-run the gate so it re-reads current-head evidence.
 
     All checks fail safe (a ``False`` decision) when an input is missing or
     ambiguous. See module docstring for the safety invariants.
+
+    ``pr_round_budget`` is the per-PR convergence budget that survives head drift
+    (``max_reruns_per_head`` resets every new head, so it never bounds a churning
+    PR — see :mod:`aragora.swarm.convergence_ledger`). When ``pr_rounds_consumed``
+    reaches it, this stops re-running and signals that the PR needs a *decision*
+    (net-value adjudication), not another round. ``pr_round_budget=0`` disables the
+    check, so existing callers are unaffected until they opt in.
     """
 
     def decide(should: bool, reason: str) -> RerunDecision:
@@ -216,6 +274,17 @@ def plan_rerun(
     if not (run_created < newest):
         return decide(False, "quorum run already postdates the newest countable evidence")
 
+    if pr_round_budget and pr_rounds_consumed >= pr_round_budget:
+        return RerunDecision(
+            pr_number=pr_number,
+            should_rerun=False,
+            reason=(
+                f"PR round budget exhausted ({pr_rounds_consumed}/{pr_round_budget} repair "
+                "rounds across head drift); net-value adjudication required, not another rerun"
+            ),
+            run_id=run.run_id if run else None,
+            needs_adjudication=True,
+        )
     if reruns_this_head >= max_reruns_per_head:
         return decide(False, f"max reruns reached for this head ({max_reruns_per_head})")
     if last_rerun_at is not None:
@@ -370,15 +439,71 @@ def summarize_settlement(
     ids = counted_reviewer_ids(comments)
     has_dogfood = any(c.would_count and c.is_dogfood for c in comments)
 
-    required_signals, requires_dogfood, requires_human = TIER_REQUIREMENTS.get(
+    # requires_dogfood / requires_human are tier-derived and flag-independent (dogfood for
+    # Tier 1+, human settlement for Tier 3+); only the signal *count* and the
+    # western-frontier constraint change with the tiered merge gate, so source those two
+    # from the strict TIER_REQUIREMENTS projection and the signal bar from the flag-aware
+    # rule below.
+    _, requires_dogfood, requires_human = TIER_REQUIREMENTS.get(
         tier if tier is not None else -1, (2, True, True)
     )
+    # Mirror the LIVE merge gate exactly: read the tiered-gate flag via the same accessor
+    # the gate uses (tiered_merge_gate_enabled) rather than hardcoding the strict regime, so
+    # when the flag is ON this diagnostic reports the relaxed Tier 1-2 bar (one
+    # western-frontier signal) and when OFF the strict bar — it never tells an operator a
+    # different requirement than what CI would actually enforce. Deriving from the same
+    # tier_quorum_rule means it can only ever match or be stricter than the gate, so it can
+    # never falsely green-light. Function-level import avoids a circular import
+    # (quorum_evidence imports this module via merge_quorum_io).
+    from aragora.swarm.quorum_evidence import (
+        WESTERN_FAMILIES,
+        WESTERN_FRONTIER_FAMILIES,
+        tier_quorum_rule,
+        tiered_merge_gate_enabled,
+    )
+
+    rule = tier_quorum_rule(tier, tiered_gate=tiered_merge_gate_enabled())
+    required_signals = rule.required_signals
+    # Jurisdiction-eligible count: drops Chinese-routed families at Tier 3-4. This
+    # is what actually drives the gate's quorum decision, not the raw id count.
+    counted = rule.counted_families(ids)
+    advisory_only = bool(set(ids) - counted)
+    # Tiered gate ON: a Tier 1-2 PR settles on ONE western-frontier signal (claude/openai),
+    # so a lone non-frontier signal must not be reported as sufficient (mirrors the gate's
+    # western_frontier_satisfied check). Like the gate, the frontier requirement is
+    # derived from GENUINE model-review signals only (review_queue computes
+    # has_western_frontier_signal from reviewer_signals with an EMPTY dogfood list):
+    # a dogfood-only counted identity satisfies the dogfood leg below but must not
+    # advance the western-frontier advice (VAL-P4A-024).
+    counted_signal_families = rule.counted_families(counted_reviewer_signal_families(comments))
+    needs_western_frontier = rule.requires_western_frontier and not (
+        counted_signal_families & WESTERN_FRONTIER_FAMILIES
+    )
+    needs_western = rule.requires_at_least_one_western and not (counted & WESTERN_FAMILIES)
 
     if quorum_conclusion.upper() == _SUCCESS:
         next_action = "none — quorum check is green; PR is ready to merge"
-    elif len(ids) < required_signals:
-        missing = required_signals - len(ids)
-        next_action = f"collect {missing} more distinct model signal(s) on the current head"
+    elif needs_western_frontier:
+        next_action = (
+            "collect one western-frontier model signal (claude/openai) on the current "
+            "head; under the tiered merge gate a Tier 1-2 PR settles on a single "
+            "western-frontier signal, which the counted families do not yet include"
+        )
+    elif len(counted) < required_signals:
+        missing = required_signals - len(counted)
+        if advisory_only:
+            next_action = (
+                f"collect {missing} more distinct Western model signal(s) on the current "
+                "head; Chinese-routed families are advisory-only at this tier and do not "
+                "count toward the quorum"
+            )
+        else:
+            next_action = f"collect {missing} more distinct model signal(s) on the current head"
+    elif needs_western:
+        next_action = (
+            "collect at least one Western model signal on the current head; the counted "
+            "families are advisory-only and do not satisfy the Tier 2 Western requirement"
+        )
     elif requires_dogfood and not has_dogfood:
         next_action = "post adversarial-dogfood evidence on the current head"
     elif requires_human and not human_settlement_present:

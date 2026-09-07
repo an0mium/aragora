@@ -53,38 +53,44 @@ Usage:
     from aragora.protocols import A2AClient, A2AServer
 """
 
+import importlib
+
 # =============================================================================
 # A2A Protocol
 # =============================================================================
 from aragora.protocols.a2a import (
     A2AClient,
-    A2AServer,
     AgentCard,
     TaskRequest,
     TaskResult,
     TaskStatus,
 )
-from aragora.protocols.bridge import ProtocolBridge
 
 # =============================================================================
 # Backend Protocols (sync, simple interfaces for storage)
 # =============================================================================
-from aragora.core_protocols import (
+from aragora.protocols.backend_protocols import (
     # Agent basics
     Agent,
     AgentRating,
+    # Type aliases
+    AgentRecord,
     # HTTP/Auth
     AuthenticatedUser,
-    HTTPHeaders,
-    HTTPRequestHandler,
     # Storage backends
     ConsensusBackend,
     CritiqueBackend,
+    DebateRecord,
     EloBackend,
     EmbeddingBackend,
     GenesisBackend,
+    HTTPHeaders,
+    HTTPRequestHandler,
     MemoryBackend,
+    MemoryRecord,
+    PathSegments,
     PersonaBackend,
+    QueryParams,
     StorageBackend,
 )
 
@@ -108,6 +114,16 @@ from aragora.protocols.event_protocols import (
     BaseHandlerProtocol,
     EventEmitterProtocol,
     HandlerProtocol,
+)
+from aragora.protocols.legacy_protocols import (
+    AgentProtocol as LegacyAgentProtocol,
+    CacheProtocol,
+    EventData,
+    EventEmitterProtocol as LegacyEventEmitterProtocol,
+    EventHandlerProtocol,
+    MemoryProtocol as LegacyMemoryProtocol,
+    StorageProtocol,
+    SyncEventHandlerProtocol,
 )
 from aragora.protocols.debate_protocols import (
     ConsensusDetectorProtocol,
@@ -191,6 +207,12 @@ __all__ = [
     "MemoryBackend",
     "PersonaBackend",
     "StorageBackend",
+    # Backend type aliases
+    "DebateRecord",
+    "MemoryRecord",
+    "AgentRecord",
+    "QueryParams",
+    "PathSegments",
     # Domain protocols - Agents
     "AgentProtocol",
     "StreamingAgentProtocol",
@@ -203,6 +225,15 @@ __all__ = [
     # Domain protocols - Events
     "EventEmitterProtocol",
     "AsyncEventEmitterProtocol",
+    # Compatibility protocols from aragora.types.protocols
+    "LegacyAgentProtocol",
+    "LegacyMemoryProtocol",
+    "LegacyEventEmitterProtocol",
+    "CacheProtocol",
+    "StorageProtocol",
+    "EventData",
+    "EventHandlerProtocol",
+    "SyncEventHandlerProtocol",
     # Domain protocols - Handlers
     "HandlerProtocol",
     "BaseHandlerProtocol",
@@ -253,3 +284,16 @@ __all__ = [
     # Result types
     "Result",
 ]
+
+
+def __getattr__(name: str):
+    if name == "A2AServer":
+        runtime = importlib.import_module("aragora.server.a2a_runtime")
+        value = runtime.A2AServer
+    elif name == "ProtocolBridge":
+        bridge = importlib.import_module("aragora.server.protocol_bridge")
+        value = bridge.ProtocolBridge
+    else:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    globals()[name] = value
+    return value

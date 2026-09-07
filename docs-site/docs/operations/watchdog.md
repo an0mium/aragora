@@ -392,7 +392,7 @@ print(f"Running: {stats['is_running']}")
 
 # Per-tier check counts
 for tier, count in stats['tier_checks'].items():
-    print(f"  \{tier\} checks: \{count\}")
+    print(f"  {tier} checks: {count}")
 ```
 
 ## Global Watchdog
@@ -579,7 +579,7 @@ CP_WATCHDOG_SLA_RESPONSE_TIME=10000
    # Don't just clear issues - document resolution
    watchdog.resolve_issue(
        issue_id=issue.id,
-       notes=f"Restarted agent, latency now \{new_latency\}ms",
+       notes=f"Restarted agent, latency now {new_latency}ms",
    )
    ```
 

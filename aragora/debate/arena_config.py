@@ -50,7 +50,7 @@ from aragora.debate.protocol import CircuitBreaker
 if TYPE_CHECKING:
     pass
 from aragora.spectate.stream import SpectatorStream
-from aragora.type_protocols import (
+from aragora.protocols import (
     BroadcastPipelineProtocol,
     DebateEmbeddingsProtocol,
     EventEmitterProtocol,

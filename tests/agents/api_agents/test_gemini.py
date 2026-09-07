@@ -99,7 +99,7 @@ class TestGeminiAgentInitialization:
         assert hasattr(GeminiAgent, "OPENROUTER_MODEL_MAP")
         assert "gemini-3.1-pro-preview" in GeminiAgent.OPENROUTER_MODEL_MAP
         assert "gemini-2.0-flash" in GeminiAgent.OPENROUTER_MODEL_MAP
-        assert GeminiAgent.DEFAULT_FALLBACK_MODEL == "google/gemini-3.1-pro"
+        assert GeminiAgent.DEFAULT_FALLBACK_MODEL == "google/gemini-3.1-pro-preview"
 
 
 class TestGeminiWebSearchDetection:
@@ -284,6 +284,29 @@ class TestGeminiGenerate:
 
 class TestGeminiGenerateStream:
     """Tests for streaming generation."""
+
+    @pytest.mark.asyncio
+    async def test_stream_blocks_before_network_when_budget_cap_reached(
+        self, mock_env_with_api_keys, monkeypatch, tmp_path
+    ):
+        """Gemini streaming must obey the fail-closed monthly cap."""
+        from aragora.agents.api_agents.gemini import GeminiAgent
+        from aragora.billing import budget_guard
+        from aragora.billing.budget_guard import BudgetExceededError
+
+        monkeypatch.setenv("ARAGORA_MONTHLY_BUDGET_USD", "1")
+        monkeypatch.setenv("ARAGORA_BUDGET_GUARD_STORE", str(tmp_path / "budget.json"))
+        budget_guard._mem_state.clear()
+
+        agent = GeminiAgent()
+        monkeypatch.setattr(agent, "_estimate_budget_cost_from_text_usd", lambda text, max_out: 2.0)
+
+        with patch("aragora.agents.api_agents.gemini.create_client_session") as create_session:
+            with pytest.raises(BudgetExceededError):
+                async for _ in agent.generate_stream("Test prompt"):
+                    pass
+
+        create_session.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_stream_handles_json_array_format(self, mock_env_with_api_keys):

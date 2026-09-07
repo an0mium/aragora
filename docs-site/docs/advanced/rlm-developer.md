@@ -215,7 +215,7 @@ async def safe_rlm_query(context: str, question: str):
             mode=RLMMode.COMPRESSION,  # Force compression
         )
     except Exception as e:
-        logger.warning(f"RLM query failed: \{e\}")
+        logger.warning(f"RLM query failed: {e}")
         return await direct_llm_query(context, question)
 ```
 
@@ -328,7 +328,7 @@ async def test_my_function(mock_rlm):
 ```python
 rlm = get_rlm()
 if rlm is None:
-    # Check: Is `pip install aragora[rlm]` installed?
+    # Check: Is Aragora installed? (TRUE RLM also needs `pip install rlm`)
     # Check: Is ARAGORA_RLM_MODE set correctly?
     # Check: Are required API keys present?
     pass

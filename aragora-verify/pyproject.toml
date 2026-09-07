@@ -1,0 +1,121 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aragora-verify"
+version = "0.1.2"
+description = "Standalone offline verifier for Open Decision Receipts (ODR) -- check schema, JCS canonical digest, Ed25519 signature, and hash-chain linkage with no Aragora install or account."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Aragora", email = "team@aragora.dev" },
+]
+keywords = [
+    "decision-receipt",
+    "open-decision-receipt",
+    "odr",
+    "offline-verification",
+    "ed25519",
+    "jcs",
+    "rfc8785",
+    "audit-trail",
+    "ai-governance",
+    "eu-ai-act",
+    "decision-integrity",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Legal Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
+]
+dependencies = [
+    # Floor matches the root project's [tool.uv] constraint-dependencies floor
+    # (../pyproject.toml): fixes GHSA-537c-gmf6-5ccf. This package only touches
+    # the stable Ed25519 verify + PEM-load surface (hazmat.primitives.
+    # asymmetric.ed25519, serialization, exceptions.InvalidSignature), which is
+    # unaffected by the 41->48 range.
+    # pip-audit risk: a standalone `pip install aragora-verify` resolves this
+    # dependency on its own -- it does not inherit the root project's uv-locked
+    # constraint-dependencies floor. Before this bump, a solo install could
+    # still land on a cryptography release vulnerable to GHSA-537c-gmf6-5ccf;
+    # this direct floor is what keeps a standalone install off it.
+    "cryptography>=48.0.1",
+]
+
+[project.optional-dependencies]
+schema = ["jsonschema>=4.0"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+aragora-verify = "aragora_verify.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/synaptent/aragora"
+Documentation = "https://github.com/synaptent/aragora/blob/main/docs/specs/OPEN_DECISION_RECEIPT.md"
+Repository = "https://github.com/synaptent/aragora/tree/main/aragora-verify"
+Changelog = "https://github.com/synaptent/aragora/blob/main/aragora-verify/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/synaptent/aragora/issues"
+
+[tool.hatch.build.targets.sdist]
+# Explicit include list so stray local directories (venvs like .pub/ or .venv/,
+# dist/, caches) never get swept into the sdist -- a venv's absolute symlinks
+# make `python -m build` fail with tarfile.AbsoluteLinkError.
+include = [
+    "src/",
+    "tests/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "pyproject.toml",
+]
+exclude = [
+    "CLAUDE.md",
+    "**/CLAUDE.md",
+    ".nomic/",
+    ".benchmarks/",
+    "**/__pycache__",
+    "**/.pytest_cache",
+    ".pub/",
+    ".venv/",
+    "dist/",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aragora_verify"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/aragora_verify/odr_schema.json" = "aragora_verify/odr_schema.json"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Previously this package had no [tool.ruff] table at all. Without one, Ruff
+# discovery falls back to the root pyproject.toml, whose "tests/*" per-file
+# ignore is relative to the repo root and never matches "aragora-verify/tests/*".
+# This package-local config keeps direct verifier checks equivalent to the root
+# policy while adding package-relative test exemptions.
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "T201", "BLE001", "UP006", "UP007", "G004", "C4", "SIM910", "S101"]
+ignore = ["E402", "E501", "E731", "E741", "E712", "C401", "C405", "C408", "C416"]
+
+# Matches the root repo's own tests/* exemptions (see
+# ../pyproject.toml [tool.ruff.lint.per-file-ignores]) with paths relative to
+# this package config root.
+[tool.ruff.lint.per-file-ignores]
+"src/aragora_verify/cli.py" = ["T201"]
+"tests/*" = ["T201", "F401", "F821", "F841", "BLE001", "G004", "S101"]

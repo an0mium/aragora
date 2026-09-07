@@ -2,7 +2,12 @@
 
 import asyncio
 import logging
-import aiohttp
+from aragora._lazy_imports import lazy_module
+
+# Optional runtime dep: imported lazily so the embeddings package can be
+# imported on a base install that lacks aiohttp. aiohttp is only needed when
+# this backend actually issues an HTTP request to the embedding provider.
+aiohttp = lazy_module("aiohttp")
 
 from aragora.config.secrets import get_secret
 from aragora.core.embeddings.backends import EmbeddingBackend

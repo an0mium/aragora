@@ -1,4 +1,4 @@
-"""Tests for aragora.metrics.manifold_brier — Manifold Brier scorer skeleton."""
+"""Tests for aragora.evaluation.manifold_brier — Manifold Brier scorer skeleton."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from aragora.metrics.manifold_brier import (
+from aragora.evaluation.manifold_brier import (
     BrierWindowSummary,
     CalibrationBin,
     ManifoldBrierScorer,

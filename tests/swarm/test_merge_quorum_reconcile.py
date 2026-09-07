@@ -4,6 +4,8 @@ Covers:
 
 - ``parse_iso8601`` (Z form, naive, empty, invalid).
 - ``counted_reviewer_ids`` aggregation (distinct, ignores non-counting).
+- ``counted_reviewer_signal_families`` provenance (signal-only, ``None`` fallback).
+- ``_signal_families_from_lint`` (lint ``reviewer_signals`` -> provenance tuple).
 - ``plan_rerun`` — every safety guard and the happy path.
 - ``summarize_settlement`` — every ``next_action`` branch.
 """
@@ -13,15 +15,18 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from aragora.swarm.merge_quorum_io import (
+    _SIGNAL_IDENTITY_BLOCKERS,
     _could_count,
     _evidence_lint_args,
     _looks_like_shadow,
+    _signal_families_from_lint,
 )
 from aragora.swarm.merge_quorum_reconcile import (
     EvidenceComment,
     PacketClassification,
     QuorumRun,
     counted_reviewer_ids,
+    counted_reviewer_signal_families,
     guard_rerun_classification_divergence,
     parse_ci_packet_classification,
     parse_iso8601,
@@ -79,6 +84,95 @@ class TestCountedReviewerIds:
 
     def test_empty(self) -> None:
         assert counted_reviewer_ids([]) == []
+
+
+class TestCountedReviewerSignalFamilies:
+    def test_signal_backed_families_counted(self) -> None:
+        comments = [
+            EvidenceComment(
+                created_at=_ts(-10),
+                would_count=True,
+                reviewer_id="claude",
+                reviewer_signals=("claude",),
+            ),
+            EvidenceComment(
+                created_at=_ts(-5),
+                would_count=True,
+                reviewer_id="openai",
+                reviewer_signals=("openai",),
+            ),
+        ]
+        assert counted_reviewer_signal_families(comments) == {"claude", "openai"}
+
+    def test_dogfood_only_comment_contributes_no_signal_family(self) -> None:
+        # Explicit empty tuple = affirmatively no genuine reviewer signal:
+        # the counted identity must not leak into the signal-only set.
+        dogfood_only = EvidenceComment(
+            created_at=_ts(-10),
+            would_count=True,
+            reviewer_id="claude",
+            is_dogfood=True,
+            reviewer_signals=(),
+        )
+        assert counted_reviewer_signal_families([dogfood_only]) == set()
+
+    def test_legacy_none_falls_back_to_reviewer_id(self) -> None:
+        # Provenance-unaware records (hand-built/legacy) keep prior behavior.
+        legacy = EvidenceComment(created_at=_ts(-10), would_count=True, reviewer_id="claude")
+        assert legacy.reviewer_signals is None
+        assert counted_reviewer_signal_families([legacy]) == {"claude"}
+
+    def test_non_counting_comment_never_contributes(self) -> None:
+        rejected = EvidenceComment(
+            created_at=_ts(-10),
+            would_count=False,
+            reviewer_id="claude",
+            reviewer_signals=("claude",),
+        )
+        assert counted_reviewer_signal_families([rejected]) == set()
+
+
+class TestSignalFamiliesFromLint:
+    def test_blockers_pin_review_queue_identity_count_blockers(self) -> None:
+        # The swarm layer cannot import the CLI module (upward edge + circular
+        # import via quorum_evidence), so the blocker set is duplicated; this
+        # pins the copy against the canonical CLI set so they cannot drift.
+        from aragora.cli.commands.review_queue import IDENTITY_COUNT_BLOCKERS
+
+        assert _SIGNAL_IDENTITY_BLOCKERS == IDENTITY_COUNT_BLOCKERS
+
+    def test_signal_families_subset_of_counted(self) -> None:
+        lint = {
+            "counted_reviewer_ids": ["claude"],
+            "reviewer_signals": [
+                {"model_family": "claude", "identity_problems": []},
+                # Not in counted ids -> excluded (e.g. advisory-only family).
+                {"model_family": "gemini", "identity_problems": []},
+            ],
+        }
+        assert _signal_families_from_lint(lint) == ("claude",)
+
+    def test_dogfood_evidence_never_contributes(self) -> None:
+        # A dogfood-only lint result has a counted id but NO reviewer_signals
+        # item: provenance is affirmatively empty, not the counted id.
+        lint = {
+            "counted_reviewer_ids": ["claude"],
+            "reviewer_signals": [],
+            "dogfood_evidence": [{"model_family": "claude", "identity_problems": []}],
+        }
+        assert _signal_families_from_lint(lint) == ()
+
+    def test_identity_blockers_exclude_item(self) -> None:
+        lint = {
+            "counted_reviewer_ids": ["claude"],
+            "reviewer_signals": [
+                {
+                    "model_family": "claude",
+                    "identity_problems": ["heading_model_family_conflict"],
+                }
+            ],
+        }
+        assert _signal_families_from_lint(lint) == ()
 
 
 class TestPlanRerun:
@@ -139,6 +233,35 @@ class TestPlanRerun:
         decision = self._call(reruns_this_head=3, max_reruns_per_head=3)
         assert decision.should_rerun is False
         assert "max reruns" in decision.reason
+
+    def test_pr_budget_disabled_by_default(self) -> None:
+        # pr_round_budget defaults to 0 (disabled); a high consumed count is ignored.
+        decision = self._call(pr_rounds_consumed=99)
+        assert decision.should_rerun is True
+
+    def test_pr_budget_under_limit_allows(self) -> None:
+        decision = self._call(pr_rounds_consumed=2, pr_round_budget=6)
+        assert decision.should_rerun is True
+
+    def test_pr_budget_exhausted_demands_adjudication(self) -> None:
+        decision = self._call(pr_rounds_consumed=6, pr_round_budget=6)
+        assert decision.should_rerun is False
+        assert "round budget exhausted" in decision.reason
+        assert "net-value adjudication" in decision.reason
+        assert decision.needs_adjudication is True
+
+    def test_needs_adjudication_false_on_all_other_paths(self) -> None:
+        assert self._call(pr_rounds_consumed=2, pr_round_budget=6).needs_adjudication is False
+        assert self._call(reruns_this_head=5).needs_adjudication is False
+
+    def test_pr_budget_bites_even_when_per_head_cap_is_fresh(self) -> None:
+        # THE fix: a repair push creates a new head, so the per-head cap resets
+        # (reruns_this_head=0). The per-PR budget must still bite across that drift.
+        decision = self._call(
+            reruns_this_head=0, max_reruns_per_head=3, pr_rounds_consumed=6, pr_round_budget=6
+        )
+        assert decision.should_rerun is False
+        assert "round budget exhausted" in decision.reason
 
     def test_within_cooldown(self) -> None:
         decision = self._call(last_rerun_at=NOW - timedelta(seconds=120), cooldown_seconds=600)
@@ -298,6 +421,42 @@ class TestSummarizeSettlement:
         status = self._call(tier=None, human_settlement_present=False)
         # Strict default requires human settlement.
         assert "human settlement" in status.next_action
+
+    # --- Jurisdiction consistency with the live gate (grok #8507 P2) -----------
+    # The diagnostic must apply the same Western-only / at-least-one-Western rules
+    # the gate enforces, so it can never tell an operator "settle-ready" for a
+    # pair the gate would block.
+
+    def test_tier3_chinese_routed_family_does_not_count_toward_settle_ready(self) -> None:
+        # Tier 3 claude+deepseek: the gate drops deepseek (advisory-only), so the
+        # diagnostic must report the quorum as incomplete, not settle-ready.
+        status = self._call(
+            tier=3,
+            comments=[_counting_comment("claude"), _counting_comment("deepseek")],
+        )
+        # Western-only counted quorum: only claude counts → needs one more Western.
+        assert "1 more distinct Western model signal" in status.next_action
+        assert "advisory-only" in status.next_action
+
+    def test_tier3_two_western_families_advance_past_signal_count(self) -> None:
+        # claude+grok are both Western: the signal count is met, so the hint moves
+        # on to the next requirement (human settlement) rather than "collect more".
+        status = self._call(
+            tier=3,
+            comments=[_counting_comment("claude"), _counting_comment("grok")],
+            human_settlement_present=False,
+        )
+        assert "Western model signal" not in status.next_action
+        assert "human settlement" in status.next_action
+
+    def test_tier2_no_western_family_is_not_settle_ready(self) -> None:
+        # Tier 2 deepseek+qwen: two distinct families but no Western → the gate
+        # blocks on the at-least-one-Western rule, so the diagnostic must too.
+        status = self._call(
+            tier=2,
+            comments=[_counting_comment("deepseek"), _counting_comment("qwen")],
+        )
+        assert "Western model signal" in status.next_action
 
 
 class TestLooksLikeShadow:

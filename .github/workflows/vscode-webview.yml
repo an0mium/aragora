@@ -1,0 +1,50 @@
+name: VS Code Webview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+    paths:
+      - 'ide/vscode-aragora/**'
+      - '.github/workflows/vscode-webview.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: vscode-webview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  webview-build:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ide/vscode-aragora
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: |
+            ide/vscode-aragora/package-lock.json
+            ide/vscode-aragora/webview-ui/package-lock.json
+
+      - name: Install extension dependencies
+        run: npm ci
+
+      - name: Compile extension
+        run: npm run compile
+
+      - name: Build webview
+        run: npm run build:webview
+
+      - name: Lint webview
+        run: npm --prefix webview-ui run lint
+
+      - name: Package extension
+        run: npm run package

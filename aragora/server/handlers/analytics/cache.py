@@ -39,7 +39,7 @@ from functools import wraps
 from typing import Any, TypeVar
 from collections.abc import Callable
 
-from aragora.cache import TTLCache, make_cache_key
+from aragora.caching import TTLCache, make_cache_key
 from aragora.config import (
     CACHE_TTL_ANALYTICS_AGENTS,
     CACHE_TTL_ANALYTICS_COSTS,

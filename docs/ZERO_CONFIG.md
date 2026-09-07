@@ -8,7 +8,7 @@ works out of the box and what requires additional configuration.
 
 ```bash
 pip install -e .
-python -m aragora.server --offline
+aragora serve --demo
 # API ready at http://localhost:8080/api/v1/health
 ```
 
@@ -16,9 +16,9 @@ No `.env` file, no API keys, no Docker, no Redis, no Postgres.
 
 ## What Works at Each Configuration Level
 
-### Level 0: Zero Config (`--offline`)
+### Level 0: Zero Config (`--demo`)
 
-Everything below works with `python -m aragora.server --offline` and zero
+Everything below works with `aragora serve --demo` and zero
 environment variables:
 
 | Capability | Details |
@@ -36,7 +36,7 @@ environment variables:
 
 **Storage:** SQLite in `~/.aragora/` (auto-created).
 
-**What `--offline` sets automatically:**
+**What `--demo` sets automatically:**
 
 | Variable | Value | Effect |
 |----------|-------|--------|
@@ -52,7 +52,7 @@ Add one LLM provider key to run real agent debates:
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...   # or
 export OPENAI_API_KEY=sk-...
-python -m aragora.server
+aragora serve
 ```
 
 This unlocks:

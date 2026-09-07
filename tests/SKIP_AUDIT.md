@@ -1,7 +1,7 @@
 # Test Skip Marker Audit
 
-**Generated**: 2026-04-06
-**Total Skip Markers**: 57
+**Generated**: 2026-08-19
+**Total Skip Markers**: 86
 
 ---
 
@@ -9,19 +9,21 @@
 
 | Category | Count | Percentage |
 |----------|-------|------------|
-| integration_dependency | 28 | 46.7% |
-| missing_feature | 14 | 23.3% |
-| optional_dependency | 7 | 11.7% |
-| platform_specific | 6 | 10.0% |
-| performance | 3 | 5.0% |
-| known_bug | 2 | 3.3% |
+| integration_dependency | 29 | 33.7% |
+| uncategorized | 20 | 23.3% |
+| missing_feature | 17 | 19.8% |
+| optional_dependency | 9 | 10.5% |
+| platform_specific | 6 | 7.0% |
+| performance | 4 | 4.7% |
+| known_bug | 1 | 1.2% |
 
 ## Summary by Marker Type
 
 | Type | Count |
 |------|-------|
-| `skipif` | 33 |
-| `pytest.skip` | 25 |
+| `pytest.skip` | 40 |
+| `skipif` | 39 |
+| `pytest.importorskip` | 5 |
 | `skip` | 2 |
 
 ## High-Skip Files (Top 10)
@@ -29,15 +31,15 @@
 | File | Skip Count |
 |------|------------|
 | `tests/integration/test_knowledge_visibility_sharing.py` | 6 |
-| `tests/test_plugin_sandbox.py` | 4 |
-| `tests/server/openapi/test_contract_matrix.py` | 4 |
-| `tests/integration/test_upgrade_validation.py` | 3 |
-| `tests/test_proofs.py` | 2 |
-| `tests/test_broadcast_audio.py` | 2 |
-| `tests/test_middleware_timeout.py` | 2 |
+| `tests/swarm/test_quorum_evidence.py` | 4 |
+| `tests/plugins/test_plugin_sandbox.py` | 4 |
+| `tests/debate/test_voting_engine.py` | 3 |
 | `tests/ranking/test_calibration_engine.py` | 2 |
+| `tests/inbox/test_inbox_receipt_convergence.py` | 2 |
 | `tests/server/middleware/rate_limit/test_distributed_integration.py` | 2 |
 | `tests/server/startup/test_validation.py` | 2 |
+| `tests/triage/test_auto_handle_calibration.py` | 2 |
+| `tests/storage/test_integration_store.py` | 2 |
 
 ---
 
@@ -69,7 +71,7 @@
 
 ## Skip Count Baseline
 
-Current baseline: **57** skips
+Current baseline: **86** skips
 
 CI will warn if skip count exceeds this baseline.
 Update `tests/.skip_baseline` when intentionally adding skips.

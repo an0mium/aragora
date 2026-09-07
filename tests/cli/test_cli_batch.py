@@ -244,16 +244,17 @@ class TestCmdBatch:
 class TestBatchViaServer:
     """Tests for _batch_via_server function."""
 
-    @patch("urllib.request.urlopen")
-    def test_submits_batch(self, mock_urlopen, sample_items, mock_args, capsys):
+    @patch("aragora.security.safe_http.safe_post")
+    def test_submits_batch(self, mock_safe_post, sample_items, mock_args, capsys):
         """Submit batch to server."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps(
-            {"success": True, "batch_id": "batch-123", "items_queued": 3}
-        ).encode()
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-        mock_urlopen.return_value = mock_response
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {
+            "success": True,
+            "batch_id": "batch-123",
+            "items_queued": 3,
+        }
+        mock_safe_post.return_value = mock_response
 
         _batch_via_server(sample_items, mock_args)
 
@@ -261,46 +262,47 @@ class TestBatchViaServer:
         assert "Batch submitted successfully" in captured.out
         assert "batch-123" in captured.out
 
-    @patch("urllib.request.urlopen")
-    def test_includes_webhook(self, mock_urlopen, sample_items, mock_args):
+    @patch("aragora.security.safe_http.safe_post")
+    def test_includes_webhook(self, mock_safe_post, sample_items, mock_args):
         """Include webhook URL in request."""
         mock_args.webhook = "http://webhook.example.com"
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps(
-            {"success": True, "batch_id": "batch-123"}
-        ).encode()
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-        mock_urlopen.return_value = mock_response
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {"success": True, "batch_id": "batch-123"}
+        mock_safe_post.return_value = mock_response
 
         _batch_via_server(sample_items, mock_args)
 
         # Verify webhook was included in request
-        call_args = mock_urlopen.call_args
-        request = call_args[0][0]
-        data = json.loads(request.data.decode())
-        assert data["webhook_url"] == "http://webhook.example.com"
-
-    @patch("urllib.request.urlopen")
-    def test_server_error(self, mock_urlopen, sample_items, mock_args, capsys):
-        """Handle server error."""
-        import urllib.error
-
-        mock_urlopen.side_effect = urllib.error.HTTPError(
-            "http://test", 500, "Server Error", {}, None
+        assert (
+            mock_safe_post.call_args.kwargs["json"]["webhook_url"] == "http://webhook.example.com"
         )
+
+    @patch("aragora.security.safe_http.safe_post")
+    def test_server_error(self, mock_safe_post, sample_items, mock_args, capsys):
+        """Handle server error."""
+        import httpx
+
+        request = httpx.Request("POST", "http://localhost:8080/api/debates/batch")
+        response = httpx.Response(500, request=request, text="Server Error")
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Server Error", request=request, response=response
+        )
+        mock_safe_post.return_value = mock_response
 
         with pytest.raises(SystemExit) as exc_info:
             _batch_via_server(sample_items, mock_args)
 
         assert exc_info.value.code == 1
 
-    @patch("urllib.request.urlopen")
-    def test_connection_error(self, mock_urlopen, sample_items, mock_args, capsys):
+    @patch("aragora.security.safe_http.safe_post")
+    def test_connection_error(self, mock_safe_post, sample_items, mock_args, capsys):
         """Handle connection error."""
-        import urllib.error
+        import httpx
 
-        mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
+        request = httpx.Request("POST", "http://localhost:8080/api/debates/batch")
+        mock_safe_post.side_effect = httpx.RequestError("Connection refused", request=request)
 
         with pytest.raises(SystemExit) as exc_info:
             _batch_via_server(sample_items, mock_args)
@@ -392,9 +394,9 @@ class TestBatchLocal:
 class TestPollBatchStatus:
     """Tests for _poll_batch_status function."""
 
-    @patch("urllib.request.urlopen")
+    @patch("aragora.security.safe_http.safe_get")
     @patch("time.sleep")
-    def test_polls_until_complete(self, mock_sleep, mock_urlopen, capsys):
+    def test_polls_until_complete(self, mock_sleep, mock_safe_get, capsys):
         """Poll until batch completes."""
         responses = [
             {
@@ -413,83 +415,72 @@ class TestPollBatchStatus:
             },
         ]
 
-        mock_response = MagicMock()
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-
         call_count = [0]
 
         def side_effect(*args, **kwargs):
             response_data = responses[min(call_count[0], len(responses) - 1)]
-            mock_response.read.return_value = json.dumps(response_data).encode()
             call_count[0] += 1
+            mock_response = MagicMock()
+            mock_response.raise_for_status = MagicMock()
+            mock_response.json.return_value = response_data
             return mock_response
 
-        mock_urlopen.side_effect = side_effect
+        mock_safe_get.side_effect = side_effect
 
         _poll_batch_status("http://localhost:8080", "batch-123")
 
         captured = capsys.readouterr()
         assert "Batch completed successfully" in captured.out
 
-    @patch("urllib.request.urlopen")
+    @patch("aragora.security.safe_http.safe_get")
     @patch("time.sleep")
-    def test_handles_partial_completion(self, mock_sleep, mock_urlopen, capsys):
+    def test_handles_partial_completion(self, mock_sleep, mock_safe_get, capsys):
         """Handle partial batch completion."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps(
-            {
-                "status": "partial",
-                "progress_percent": 100,
-                "completed": 2,
-                "failed": 1,
-                "total_items": 3,
-            }
-        ).encode()
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-        mock_urlopen.return_value = mock_response
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {
+            "status": "partial",
+            "progress_percent": 100,
+            "completed": 2,
+            "failed": 1,
+            "total_items": 3,
+        }
+        mock_safe_get.return_value = mock_response
 
         _poll_batch_status("http://localhost:8080", "batch-123")
 
         captured = capsys.readouterr()
         assert "partially completed" in captured.out
 
-    @patch("urllib.request.urlopen")
+    @patch("aragora.security.safe_http.safe_get")
     @patch("time.sleep")
-    def test_handles_failure(self, mock_sleep, mock_urlopen, capsys):
+    def test_handles_failure(self, mock_sleep, mock_safe_get, capsys):
         """Handle batch failure."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps(
-            {
-                "status": "failed",
-                "progress_percent": 50,
-                "completed": 1,
-                "failed": 2,
-                "total_items": 3,
-            }
-        ).encode()
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-        mock_urlopen.return_value = mock_response
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {
+            "status": "failed",
+            "progress_percent": 50,
+            "completed": 1,
+            "failed": 2,
+            "total_items": 3,
+        }
+        mock_safe_get.return_value = mock_response
 
         _poll_batch_status("http://localhost:8080", "batch-123")
 
         captured = capsys.readouterr()
         assert "Batch failed" in captured.out
 
-    @patch("urllib.request.urlopen")
+    @patch("aragora.security.safe_http.safe_get")
     @patch("time.sleep")
-    def test_includes_auth_token(self, mock_sleep, mock_urlopen):
+    def test_includes_auth_token(self, mock_sleep, mock_safe_get):
         """Include auth token in poll requests."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({"status": "completed"}).encode()
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-        mock_urlopen.return_value = mock_response
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {"status": "completed"}
+        mock_safe_get.return_value = mock_response
 
         _poll_batch_status("http://localhost:8080", "batch-123", token="secret-token")
 
-        call_args = mock_urlopen.call_args
-        request = call_args[0][0]
-        assert request.get_header("Authorization") == "Bearer secret-token"
+        assert mock_safe_get.call_args.kwargs["headers"]["Authorization"] == "Bearer secret-token"

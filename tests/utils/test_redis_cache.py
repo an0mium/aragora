@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.utils.redis_cache import (
+from aragora.caching.redis import (
     HybridTTLCache,
     RedisTTLCache,
 )
@@ -406,7 +406,7 @@ class TestRedisLazyInitialization:
     def test_get_redis_lazy_init(self):
         """_get_redis should lazily initialize on first call."""
         cache = RedisTTLCache(prefix="test")
-        with patch("aragora.utils.redis_cache.RedisTTLCache._get_redis") as mock_get_redis:
+        with patch("aragora.caching.redis.RedisTTLCache._get_redis") as mock_get_redis:
             mock_get_redis.return_value = None
             cache.get("key1")
             mock_get_redis.assert_called()
@@ -415,7 +415,7 @@ class TestRedisLazyInitialization:
         """ImportError from redis_config should be handled gracefully."""
         cache = RedisTTLCache(prefix="test")
         with patch(
-            "aragora.server.redis_config.get_redis_client",
+            "aragora.utils.redis_config.get_redis_client",
             side_effect=ImportError("No module"),
         ):
             cache._redis_checked = False  # Reset to force re-check
@@ -427,7 +427,7 @@ class TestRedisLazyInitialization:
         """None from get_redis_client should be handled."""
         cache = RedisTTLCache(prefix="test")
         with patch(
-            "aragora.server.redis_config.get_redis_client",
+            "aragora.utils.redis_config.get_redis_client",
             return_value=None,
         ):
             cache._redis_checked = False
@@ -440,7 +440,7 @@ class TestRedisLazyInitialization:
         cache = RedisTTLCache(prefix="test")
         mock_client = MagicMock()
         with patch(
-            "aragora.server.redis_config.get_redis_client",
+            "aragora.utils.redis_config.get_redis_client",
             return_value=mock_client,
         ):
             cache._redis_checked = False

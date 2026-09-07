@@ -15,6 +15,7 @@ Performance optimizations:
 import asyncio
 import hashlib
 import logging
+import sqlite3
 import threading
 import time
 from collections import OrderedDict
@@ -22,7 +23,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 from collections.abc import Callable
 
-from aragora.types.protocols import EventEmitterProtocol
+from aragora.protocols import LegacyEventEmitterProtocol
 
 from aragora.agents.errors import _build_error_action
 
@@ -38,6 +39,56 @@ from aragora.memory.continuum import MemoryTier
 from aragora.memory.tier_analytics import TierAnalyticsTracker
 
 logger = logging.getLogger(__name__)
+
+
+_EXPECTED_SIDE_EFFECT_EXCEPTIONS = (
+    AttributeError,
+    TypeError,
+    ValueError,
+    KeyError,
+)
+_TRANSIENT_SIDE_EFFECT_EXCEPTIONS = (
+    OSError,
+    RuntimeError,
+    ConnectionError,
+    TimeoutError,
+    StopIteration,
+    ImportError,
+    sqlite3.Error,
+)
+_MAX_PENDING_OUTCOME_UPDATES = 256
+
+
+def _run_noncritical_memory_side_effect(label: str, action: Callable[[], None]) -> bool:
+    """Run a best-effort memory/spectator side effect without breaking debate flow."""
+    try:
+        action()
+    except _EXPECTED_SIDE_EFFECT_EXCEPTIONS as e:
+        logger.debug("%s: %s", label, e)
+        return False
+    except _TRANSIENT_SIDE_EFFECT_EXCEPTIONS as e:
+        logger.warning("%s: %s", label, e)
+        return False
+    return True
+
+
+@dataclass(frozen=True)
+class _PendingMemoryOutcomeUpdate:
+    """Outcome update payload retained after a transient memory-write failure."""
+
+    memory_id: str
+    success: bool
+    confidence: float
+    debate_id: str
+    tier: MemoryTier | None = None
+
+    @property
+    def agent_prediction_error(self) -> float:
+        return 1.0 - self.confidence if self.success else self.confidence
+
+    @property
+    def quality_after(self) -> float:
+        return self.confidence if self.success else 0.3
 
 
 # =============================================================================
@@ -391,7 +442,7 @@ class MemoryManager:
         consensus_memory: Optional["ConsensusMemory"] = None,
         debate_embeddings: Optional["DebateEmbeddingsDatabase"] = None,
         domain_extractor: Callable[[], str] | None = None,
-        event_emitter: EventEmitterProtocol | None = None,
+        event_emitter: LegacyEventEmitterProtocol | None = None,
         spectator: Optional["SpectatorStream"] = None,
         loop_id: str = "",
         tier_analytics_tracker: TierAnalyticsTracker | None = None,
@@ -441,6 +492,9 @@ class MemoryManager:
         self._retrieved_ids: list[str] = []
         # Track tier info for analytics
         self._retrieved_tiers: dict[str, MemoryTier] = {}
+        # Failed outcome writes carry their original debate outcome payload so
+        # future retries cannot accidentally use a later debate's result.
+        self._pending_outcome_updates: list[_PendingMemoryOutcomeUpdate] = []
 
         # Pattern cache: (timestamp, formatted_patterns) - TTL 5 minutes
         self._patterns_cache: tuple[float, str] | None = None
@@ -571,7 +625,7 @@ class MemoryManager:
             )
 
             # Build metadata with optional crux claims
-            metadata = {
+            metadata: dict[str, Any] = {
                 "debate_id": result.id,
                 "task": task[:100],
                 "domain": domain,
@@ -935,59 +989,141 @@ class MemoryManager:
         Args:
             result: The debate result to use for updates
         """
-        if not self.continuum_memory or not self._retrieved_ids:
+        continuum_memory = self.continuum_memory
+        if not continuum_memory or (not self._retrieved_ids and not self._pending_outcome_updates):
             return
 
         try:
             success = result.consensus_reached and result.confidence > 0.6
             updated_count = 0
 
-            for mem_id in self._retrieved_ids:
+            def apply_outcome_update(update: _PendingMemoryOutcomeUpdate) -> str:
                 try:
-                    # Update outcome with prediction error based on debate confidence
-                    prediction_error = 1.0 - result.confidence if success else result.confidence
-                    self.continuum_memory.update_outcome(
-                        id=mem_id,
-                        success=success,
-                        agent_prediction_error=prediction_error,
+                    continuum_memory.update_outcome(
+                        id=update.memory_id,
+                        success=update.success,
+                        agent_prediction_error=update.agent_prediction_error,
                     )
-                    updated_count += 1
+                except _EXPECTED_SIDE_EFFECT_EXCEPTIONS as e:
+                    logger.debug(
+                        "  [continuum] Dropping non-retryable memory outcome update for %s: %s",
+                        update.memory_id,
+                        e,
+                    )
+                    return "dropped"
+                except _TRANSIENT_SIDE_EFFECT_EXCEPTIONS as e:
+                    logger.warning(
+                        "  [continuum] Failed to update memory %s: %s",
+                        update.memory_id,
+                        e,
+                    )
+                    return "retry"
+                return "applied"
 
-                    # Record usage for tier analytics if tracker available
-                    if self.tier_analytics_tracker and mem_id in self._retrieved_tiers:
-                        try:
-                            # quality_before: neutral baseline (0.5)
-                            # quality_after: debate outcome confidence
-                            self.tier_analytics_tracker.record_usage(
-                                memory_id=mem_id,
-                                tier=self._retrieved_tiers[mem_id],
-                                debate_id=result.id,
-                                quality_before=0.5,
-                                quality_after=result.confidence if success else 0.3,
-                            )
-                        except (AttributeError, TypeError, ValueError) as e:
-                            # Expected: tier analytics configuration issues
-                            logger.debug(
-                                "  [tier_analytics] Failed to record usage for %s: %s", mem_id, e
-                            )
-                        except (OSError, RuntimeError) as e:
-                            # Unexpected error
-                            logger.warning(
-                                "  [tier_analytics] Unexpected error recording usage for %s: %s",
-                                mem_id,
-                                e,
-                            )
+            def remember_pending(update: _PendingMemoryOutcomeUpdate) -> None:
+                existing_count = len(still_pending)
+                still_pending[:] = [
+                    pending for pending in still_pending if pending.memory_id != update.memory_id
+                ]
+                if len(still_pending) != existing_count:
+                    logger.debug(
+                        "  [continuum] Coalesced pending outcome update for %s",
+                        update.memory_id,
+                    )
+                still_pending.append(update)
+                if len(still_pending) > _MAX_PENDING_OUTCOME_UPDATES:
+                    overflow = len(still_pending) - _MAX_PENDING_OUTCOME_UPDATES
+                    dropped = still_pending[:overflow]
+                    del still_pending[:overflow]
+                    logger.warning(
+                        "  [continuum] Dropped %s pending outcome update(s) after cap; "
+                        "policy=latest_per_memory_id; dropped_memory_ids=%s",
+                        overflow,
+                        ",".join(update.memory_id for update in dropped),
+                    )
 
-                except (AttributeError, TypeError, ValueError, KeyError) as e:
-                    # Expected: memory update configuration or data issues
-                    logger.debug("  [continuum] Failed to update memory %s: %s", mem_id, e)
-                except (OSError, RuntimeError) as e:
+            def record_tier_usage(update: _PendingMemoryOutcomeUpdate) -> None:
+                if not self.tier_analytics_tracker or update.tier is None:
+                    return
+                try:
+                    # quality_before: neutral baseline (0.5)
+                    self.tier_analytics_tracker.record_usage(
+                        memory_id=update.memory_id,
+                        tier=update.tier,
+                        debate_id=update.debate_id,
+                        quality_before=0.5,
+                        quality_after=update.quality_after,
+                    )
+                except (
+                    AttributeError,
+                    TypeError,
+                    ValueError,
+                    KeyError,
+                    StopIteration,
+                    ImportError,
+                ) as e:
+                    # Expected: tier analytics configuration issues
+                    logger.debug(
+                        "  [tier_analytics] Failed to record usage for %s: %s",
+                        update.memory_id,
+                        e,
+                    )
+                except (
+                    OSError,
+                    RuntimeError,
+                    ConnectionError,
+                    TimeoutError,
+                    sqlite3.Error,
+                ) as e:
                     # Unexpected error
                     logger.warning(
-                        "  [continuum] Unexpected error updating memory %s: %s", mem_id, e
+                        "  [tier_analytics] Unexpected error recording usage for %s: %s",
+                        update.memory_id,
+                        e,
                     )
-                except (ConnectionError, TimeoutError, StopIteration, ImportError) as e:
-                    logger.warning("  [continuum] Failed to update memory %s: %s", mem_id, e)
+
+            def clear_pending_for_current_success(memory_id: str) -> None:
+                existing_count = len(still_pending)
+                still_pending[:] = [
+                    pending for pending in still_pending if pending.memory_id != memory_id
+                ]
+                if len(still_pending) != existing_count:
+                    logger.debug(
+                        "  [continuum] Cleared stale pending outcome update for %s",
+                        memory_id,
+                    )
+
+            still_pending: list[_PendingMemoryOutcomeUpdate] = []
+            for pending_update in self._pending_outcome_updates:
+                outcome = apply_outcome_update(pending_update)
+                if outcome == "retry":
+                    remember_pending(pending_update)
+                    continue
+                if outcome == "dropped":
+                    continue
+                updated_count += 1
+                record_tier_usage(pending_update)
+
+            for mem_id in list(self._retrieved_ids):
+                # Update outcome with prediction error based on debate confidence.
+                update = _PendingMemoryOutcomeUpdate(
+                    memory_id=mem_id,
+                    success=success,
+                    confidence=result.confidence,
+                    debate_id=result.id,
+                    tier=self._retrieved_tiers.get(mem_id),
+                )
+
+                outcome = apply_outcome_update(update)
+                if outcome == "retry":
+                    remember_pending(update)
+                    continue
+                if outcome == "dropped":
+                    continue
+
+                updated_count += 1
+                clear_pending_for_current_success(update.memory_id)
+                record_tier_usage(update)
 
             if updated_count > 0:
                 logger.info(
@@ -996,7 +1132,7 @@ class MemoryManager:
                     success,
                 )
 
-            # Clear tracked IDs and tiers after update
+            self._pending_outcome_updates = still_pending
             self._retrieved_ids = []
             self._retrieved_tiers = {}
 
@@ -1294,15 +1430,16 @@ class MemoryManager:
 
     def _notify_spectator(self, event_type: str, details: str, metric: float = 0.0) -> None:
         """Notify spectator stream of an event."""
-        if self.spectator:
-            try:
-                self.spectator.emit(event_type, details=details, metric=metric)
-            except (AttributeError, TypeError) as e:
-                # Expected: spectator method or signature issues
-                logger.debug("Spectator notification error: %s", e)
-            except (OSError, RuntimeError, ValueError, KeyError) as e:
-                # Spectator delivery must never break debate execution.
-                logger.warning("Unexpected spectator notification error: %s", e)
+        spectator = self.spectator
+        if spectator:
+
+            def emit_spectator() -> None:
+                spectator.emit(event_type, details=details, metric=metric)
+
+            _run_noncritical_memory_side_effect(
+                "Spectator notification error",
+                emit_spectator,
+            )
 
     def track_retrieved_ids(
         self,
@@ -1327,6 +1464,11 @@ class MemoryManager:
     def retrieved_ids(self) -> list[str]:
         """Get list of currently tracked memory IDs."""
         return self._retrieved_ids.copy()
+
+    @property
+    def has_pending_outcome_updates(self) -> bool:
+        """Whether transient outcome-write failures are waiting for retry."""
+        return bool(self._pending_outcome_updates)
 
     # =========================================================================
     # Batch Operations and Prefetching

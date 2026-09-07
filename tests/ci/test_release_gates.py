@@ -20,6 +20,7 @@ import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from packaging.requirements import Requirement
 import pytest
 import yaml
 
@@ -49,6 +50,23 @@ def _get_triggers(data: dict) -> dict:
     if True in data:
         return data[True]
     raise KeyError("Workflow has no 'on' trigger key")
+
+
+def _shell_array_values(script: str, name: str) -> set[str]:
+    """Return quoted values from a simple bash array assignment."""
+    array_match = re.search(
+        rf"^(?:readonly\s+)?{re.escape(name)}=\((?P<body>[^\n]*)\)",
+        script,
+        re.MULTILINE,
+    )
+    if array_match is None:
+        array_match = re.search(
+            rf"^(?:readonly\s+)?{re.escape(name)}=\(\n(?P<body>.*?)^\)",
+            script,
+            re.MULTILINE | re.DOTALL,
+        )
+    assert array_match is not None
+    return set(re.findall(r'"([^"]+)"', array_match.group("body")))
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +189,24 @@ class TestReleaseReadinessWorkflow:
         run = install_step.get("run", "")
         assert "scripts/ci_install_project.sh" in run
         assert "--extras dev,test" in run
+
+
+class TestSharedCiInstaller:
+    """Validate shared CI installer package-name compatibility."""
+
+    def test_control_plane_root_names_include_renamed_package(self):
+        script = (PROJECT_ROOT / "scripts" / "ci_install_project.sh").read_text()
+        names = _shell_array_values(script, "LEGACY_CONTROL_PLANE_PACKAGE_NAMES")
+        assert {"aragora-debate", "aragora"} <= names
+        assert 'LEGACY_CONTROL_PLANE_MARKER_PATH="aragora/server"' in script
+
+    def test_control_plane_test_deps_install_real_anthropic_sdk(self):
+        script = (PROJECT_ROOT / "scripts" / "ci_install_project.sh").read_text()
+        deps = _shell_array_values(script, "LEGACY_CONTROL_PLANE_TEST_EXTRA_DEPS")
+        anthropic_dep = next(
+            Requirement(dep) for dep in deps if Requirement(dep).name == "anthropic"
+        )
+        assert str(anthropic_dep.specifier) == "<1.0,>=0.111"
 
 
 class TestAragoraReviewGateWorkflow:
@@ -523,6 +559,14 @@ class TestPreReleaseCheckScript:
     def setup(self):
         self.script = PROJECT_ROOT / "scripts" / "pre_release_check.py"
 
+    def _load_module(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("pre_release_check", str(self.script))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
     def test_script_exists(self):
         assert self.script.exists(), "scripts/pre_release_check.py does not exist"
 
@@ -573,11 +617,7 @@ class TestPreReleaseCheckScript:
             )
 
     def test_pip_audit_gate_invokes_helper_by_absolute_repo_path(self):
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("pre_release_check", str(self.script))
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = self._load_module()
 
         with patch.object(module, "_run_cmd", return_value=(0, "")) as run_cmd:
             assert module.gate_pip_audit() is True
@@ -585,6 +625,160 @@ class TestPreReleaseCheckScript:
         cmd = run_cmd.call_args.args[0]
         assert Path(cmd[1]).is_absolute()
         assert Path(cmd[1]) == PROJECT_ROOT / "scripts" / "run_pip_audit_gate.py"
+
+    def test_pip_audit_gate_reports_unique_vulnerability_ids(self):
+        module = self._load_module()
+        output = "pkg-a CVE-2026-1234\nrepeated CVE-2026-1234\npkg-b GHSA-abcd-1234-efgh"
+
+        with patch.object(module, "_run_cmd", return_value=(1, output)):
+            assert module.gate_pip_audit() is False
+
+        assert module._results[-1] == ("pip_audit", False, "2 vulnerability/ies detected")
+
+    def test_pip_audit_gate_preserves_non_vulnerability_failure_diagnostic(self):
+        module = self._load_module()
+        module._verbose = True
+
+        with patch.object(
+            module,
+            "_run_cmd",
+            return_value=(7, "ERROR: OSV service unavailable while querying locked dependencies"),
+        ):
+            assert module.gate_pip_audit() is False
+
+        _, passed, detail = module._results[-1]
+        assert passed is False
+        assert "audit execution failed without vulnerability findings" in detail
+        assert "OSV service unavailable" in detail
+        assert "0 vulnerability/ies detected" not in detail
+
+    def test_pip_audit_gate_non_verbose_never_echoes_raw_diagnostics(self):
+        module = self._load_module()
+        assert module._verbose is False
+
+        with patch.object(
+            module,
+            "_run_cmd",
+            return_value=(7, "ERROR: request failed Authorization: Bearer sk-live-abc123"),
+        ):
+            assert module.gate_pip_audit() is False
+
+        _, passed, detail = module._results[-1]
+        assert passed is False
+        assert "audit execution failed without vulnerability findings" in detail
+        assert "sk-live-abc123" not in detail
+        assert "Bearer" not in detail
+        assert "request failed" not in detail
+
+    def test_pip_audit_gate_bounds_and_redacts_failure_output(self):
+        module = self._load_module()
+        module._verbose = True
+        output = "\n".join(
+            ["old diagnostic"] * 8
+            + [
+                "request failed https://user:password@example.test/audit?token=top-secret",
+                "x" * 500,
+            ]
+        )
+
+        with patch.object(module, "_run_cmd", return_value=(2, output)):
+            assert module.gate_pip_audit() is False
+
+        detail = module._results[-1][2]
+        assert len(detail) <= 864
+        assert "password" not in detail
+        assert "top-secret" not in detail
+        assert "[redacted]" in detail
+
+    def test_pip_audit_gate_redacts_authorization_headers(self):
+        module = self._load_module()
+        module._verbose = True
+        output = (
+            "HTTP retry failed\n"
+            "Authorization: Bearer eyJhbGciOi.secret-part.sig\n"
+            "Proxy-Authorization: Basic dXNlcjpwYXNz\n"
+            "X-Api-Key: xk-live-9876543210\n"
+        )
+
+        with patch.object(module, "_run_cmd", return_value=(3, output)):
+            assert module.gate_pip_audit() is False
+
+        detail = module._results[-1][2]
+        assert "eyJhbGciOi.secret-part.sig" not in detail
+        assert "dXNlcjpwYXNz" not in detail
+        assert "xk-live-9876543210" not in detail
+        assert "[redacted]" in detail
+        assert "HTTP retry failed" in detail
+
+    def test_pip_audit_gate_redacts_index_url_credentials(self):
+        module = self._load_module()
+        module._verbose = True
+        output = (
+            "PIP_INDEX_URL=https://deploy-token-abc@pypi.internal.test/simple\n"
+            "fallback https://svc:hunter2@mirror.test/simple failed\n"
+        )
+
+        with patch.object(module, "_run_cmd", return_value=(3, output)):
+            assert module.gate_pip_audit() is False
+
+        detail = module._results[-1][2]
+        assert "deploy-token-abc" not in detail
+        assert "hunter2" not in detail
+        assert "svc:" not in detail
+        assert "https://[redacted]@" in detail
+        assert "pypi.internal.test" in detail
+
+    def test_pip_audit_gate_redacts_json_yaml_and_query_secrets(self):
+        module = self._load_module()
+        module._verbose = True
+        output = (
+            'response body {"token": "tok-abc123", "refresh_token": "tok-def456"}\n'
+            "password: yaml-hunter2\n"
+            "client_secret=deadbeefcafe\n"
+            "retry https://osv.test/query?access_token=qs-secret-1 failed\n"
+        )
+
+        with patch.object(module, "_run_cmd", return_value=(3, output)):
+            assert module.gate_pip_audit() is False
+
+        detail = module._results[-1][2]
+        assert "tok-abc123" not in detail
+        assert "tok-def456" not in detail
+        assert "yaml-hunter2" not in detail
+        assert "deadbeefcafe" not in detail
+        assert "qs-secret-1" not in detail
+        assert "[redacted]" in detail
+
+    def test_pip_audit_gate_passes_through_benign_diagnostics(self):
+        module = self._load_module()
+        module._verbose = True
+        output = "ERROR: OSV service unavailable (HTTP 503); retried 3 times"
+
+        with patch.object(module, "_run_cmd", return_value=(9, output)):
+            assert module.gate_pip_audit() is False
+
+        detail = module._results[-1][2]
+        assert "OSV service unavailable (HTTP 503); retried 3 times" in detail
+        assert "[redacted]" not in detail
+
+    def test_pip_audit_gate_fails_closed_when_sanitizer_unavailable(self):
+        module = self._load_module()
+        module._verbose = True
+
+        with (
+            patch.object(module, "_load_canonical_sanitizer", return_value=None),
+            patch.object(
+                module,
+                "_run_cmd",
+                return_value=(4, "boom Authorization: Bearer sk-live-should-not-leak"),
+            ),
+        ):
+            assert module.gate_pip_audit() is False
+
+        detail = module._results[-1][2]
+        assert "sk-live-should-not-leak" not in detail
+        assert "boom" not in detail
+        assert "diagnostics withheld" in detail
 
 
 class TestPipAuditGate:
@@ -617,7 +811,7 @@ class TestPipAuditGate:
         assert "pyjwt-2.12.1" not in lock_content
         assert "pyjwt-2.13.0" in lock_content
         assert "starlette-1.0.0" not in lock_content
-        assert "starlette-1.0.1" in lock_content
+        assert "starlette-1.3.1" in lock_content
 
     def test_load_ignored_vulns_skips_comments(self, tmp_path):
         allowlist = tmp_path / "allowlist.txt"

@@ -17,6 +17,8 @@ from aragora.exceptions import ExternalServiceError
 from aragora.knowledge.mound.retrieval import build_debate_knowledge_query
 
 if TYPE_CHECKING:
+    import asyncio
+
     from aragora.debate.context import DebateContext
     from aragora.reasoning.belief import BeliefNetwork
     from aragora.events.security_events import SecurityEvent
@@ -65,9 +67,13 @@ class ArenaDelegatesMixin:
     # Knowledge Mound Delegates
     # ------------------------------------------------------------------
 
-    async def _init_km_context(self, debate_id: str, domain: str) -> None:
-        """Initialize Knowledge Mound context. Delegates to ArenaKnowledgeManager."""
-        await self._km_manager.init_context(
+    async def _init_km_context(self, debate_id: str, domain: str) -> "asyncio.Task[Any] | None":
+        """Initialize Knowledge Mound context. Delegates to ArenaKnowledgeManager.
+
+        Returns the in-flight culture-profile retrieval task (if one was
+        scheduled) so the caller can await it before reading culture hints.
+        """
+        return await self._km_manager.init_context(
             debate_id=debate_id,
             domain=domain,
             env=self.env,
@@ -573,15 +579,27 @@ class ArenaDelegatesMixin:
         self, proposal_agent: str, all_critics: list[Agent]
     ) -> list[Agent]:
         """Select critics for proposal. Delegates to AgentPool."""
-        # Find the proposer agent object
-        proposer = None
-        for agent in all_critics:
-            if getattr(agent, "name", str(agent)) == proposal_agent:
-                proposer = agent
-                break
-
+        # Dedicated critic lists normally exclude the proposer. Resolve against
+        # the full arena roster and preserve the name when only the identity is
+        # available; treating the first critic as the proposer filters out the
+        # sole critic in a two-agent debate.
+        proposer = next(
+            (
+                agent
+                for agent in self.agents
+                if getattr(agent, "name", str(agent)) == proposal_agent
+            ),
+            None,
+        )
         if proposer is None:
-            proposer = all_critics[0] if all_critics else None
+            proposer = next(
+                (
+                    agent
+                    for agent in all_critics
+                    if getattr(agent, "name", str(agent)) == proposal_agent
+                ),
+                proposal_agent,
+            )
 
         return self.agent_pool.select_critics(
             proposer=proposer,

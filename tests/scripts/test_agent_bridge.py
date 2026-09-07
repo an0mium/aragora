@@ -88,6 +88,224 @@ def test_lane_record_preserves_desktop_identity_metadata() -> None:
     assert payload["session_title"] == "Review #7286"
 
 
+def test_lane_record_lease_fields_are_backward_compatible() -> None:
+    import agent_bridge as mod
+
+    old_record = mod.LaneRecord.from_dict(
+        {
+            "lane_id": "codex-old",
+            "owner_session": "codex-A",
+            "status": "active",
+        }
+    )
+    old_payload = old_record.to_dict()
+    assert "lease_id" not in old_payload
+    assert "work_id" not in old_payload
+
+    new_record = mod.LaneRecord.from_dict(
+        {
+            "lane_id": "codex-new",
+            "owner_session": "codex-B",
+            "status": "active",
+            "work_id": "pr:8852",
+            "lease_id": "lease-1",
+            "lease_status": "active",
+            "lease_health": "ok",
+        }
+    )
+    new_payload = new_record.to_dict()
+    assert new_payload["work_id"] == "pr:8852"
+    assert new_payload["lease_id"] == "lease-1"
+    assert new_payload["lease_status"] == "active"
+    assert new_payload["lease_health"] == "ok"
+
+
+def test_lane_registry_sidecar_enriches_missing_lease_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-1",
+                    "owner_session": "codex-A",
+                    "status": "active",
+                    "branch": "codex/lease",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    sidecar = mod.CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge" / "lane-leases.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(
+        json.dumps(
+            {
+                "lane-1": {
+                    "branch": "codex/lease",
+                    "work_id": "pr:8852",
+                    "lease_id": "lease-1",
+                    "owner_session_id": "sess-1",
+                    "lease_status": "active",
+                    "lease_health": "ok",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    [record] = mod._load_lane_registry()
+
+    assert record.work_id == "pr:8852"
+    assert record.lease_id == "lease-1"
+    assert record.lease_status == "active"
+    assert record.lease_health == "sidecar"
+
+
+def test_lane_registry_reads_repo_local_sidecar_when_state_root_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "state-root"))
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-1",
+                    "owner_session": "codex-A",
+                    "status": "active",
+                    "branch": "codex/lease",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    sidecar = mod.CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge" / "lane-leases.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(
+        json.dumps(
+            {
+                "lane-1": {
+                    "branch": "codex/lease",
+                    "work_id": "pr:8852",
+                    "lease_id": "lease-1",
+                    "owner_session_id": "sess-1",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    [record] = mod._load_lane_registry()
+
+    assert record.work_id == "pr:8852"
+    assert record.lease_id == "lease-1"
+
+
+def test_lane_registry_native_lease_fields_override_sidecar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-1",
+                    "owner_session": "codex-A",
+                    "status": "active",
+                    "branch": "codex/lease",
+                    "work_id": "pr:8852",
+                    "lease_id": "native-lease",
+                    "lease_status": "active",
+                    "lease_health": "ok",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    sidecar = mod.CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge" / "lane-leases.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(
+        json.dumps(
+            {
+                "lane-1": {
+                    "branch": "codex/lease",
+                    "work_id": "pr:9999",
+                    "lease_id": "sidecar-lease",
+                    "lease_status": "stale",
+                    "lease_health": "sidecar",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    [record] = mod._load_lane_registry()
+
+    assert record.work_id == "pr:8852"
+    assert record.lease_id == "native-lease"
+    assert record.lease_status == "active"
+    assert record.lease_health == "ok"
+
+
+def test_lane_registry_sidecar_health_self_heals_after_live_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-1",
+                    "owner_session": "codex-A",
+                    "status": "active",
+                    "branch": "codex/lease",
+                    "work_id": "pr:8852",
+                    "lease_id": "lease-1",
+                    "lease_status": "active",
+                    "lease_health": "sidecar",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    sidecar = mod.CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge" / "lane-leases.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(
+        json.dumps(
+            {
+                "lane-1": {
+                    "branch": "codex/lease",
+                    "work_id": "pr:8852",
+                    "lease_id": "lease-1",
+                    "owner_session_id": "codex-A",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_sidecar_points_to_active_dev_lease", lambda *_args: True)
+
+    [record] = mod._load_lane_registry()
+
+    assert record.lease_id == "lease-1"
+    assert record.lease_status == "active"
+    assert record.lease_health == "ok"
+
+
 def test_cmd_approve_droid_uses_enter_menu_selection(monkeypatch: pytest.MonkeyPatch) -> None:
     import agent_bridge as mod
 
@@ -410,6 +628,7 @@ def test_operator_snapshot_summary_only_json_omits_records(
             "count": 2,
             "fresh_count": 1,
             "stale_count": 1,
+            "terminal_count": 0,
             "latest_by_owner": {
                 "codex-owner": {
                     "owner_session": "codex-owner",
@@ -435,7 +654,12 @@ def test_operator_snapshot_summary_only_json_omits_records(
     assert payload["summary"]["active_processes"] == 0
     assert payload["summary"]["active_process_roles"] == []
     assert payload["process_census"] == {"ok": True, "total": 0, "by_role": {}}
-    assert payload["agent_heartbeats"] == {"count": 2, "fresh_count": 1, "stale_count": 1}
+    assert payload["agent_heartbeats"] == {
+        "count": 2,
+        "fresh_count": 1,
+        "stale_count": 1,
+        "terminal_count": 0,
+    }
     assert payload["health"] == {"ok": True, "issues": []}
     assert discover_include_summaries == [False]
 
@@ -1040,6 +1264,253 @@ def test_operator_snapshot_summary_counts_repo_local_lane_when_user_registry_exi
     payload = json.loads(capsys.readouterr().out)
     assert "lanes" not in payload
     assert payload["summary"]["active_lanes"] == 1
+
+
+def test_operator_snapshot_summary_reports_active_lanes_missing_dev_lease(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-missing",
+                    "owner_session": "codex-A",
+                    "status": "active",
+                    "branch": "codex/missing",
+                },
+                {
+                    "lane_id": "lane-held",
+                    "owner_session": "codex-B",
+                    "status": "active",
+                    "branch": "codex/held",
+                    "lease_id": "lease-1",
+                    "work_id": "pr:8852",
+                    "lease_status": "active",
+                    "lease_health": "ok",
+                },
+                {
+                    "lane_id": "lane-sidecar-only",
+                    "owner_session": "codex-sidecar",
+                    "status": "active",
+                    "branch": "codex/sidecar",
+                },
+                {
+                    "lane_id": "lane-complete",
+                    "owner_session": "codex-C",
+                    "status": "completed",
+                    "branch": "codex/done",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    sidecar = mod.CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge" / "lane-leases.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(
+        json.dumps(
+            {
+                "lane-sidecar-only": {
+                    "branch": "codex/sidecar",
+                    "work_id": "pr:8853",
+                    "lease_id": "stale-sidecar-lease",
+                    "owner_session_id": "codex-sidecar",
+                    "lease_status": "active",
+                    "lease_health": "ok",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "_sidecar_points_to_active_dev_lease",
+        lambda record, sidecar: sidecar.get("lease_id") == "lease-1",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary"]["active_lanes"] == 3
+    assert payload["summary"]["active_lanes_missing_dev_lease"] == 2
+    assert payload["summary"]["active_lanes_with_dev_lease"] == 1
+
+
+def test_operator_snapshot_counts_validated_sidecar_dev_lease(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-sidecar",
+                    "owner_session": "codex-sidecar",
+                    "status": "active",
+                    "branch": "codex/sidecar",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    sidecar = mod.CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge" / "lane-leases.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(
+        json.dumps(
+            {
+                "lane-sidecar": {
+                    "branch": "codex/sidecar",
+                    "work_id": "pr:8853",
+                    "lease_id": "live-sidecar-lease",
+                    "owner_session_id": "codex-sidecar",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "_sidecar_points_to_active_dev_lease",
+        lambda record, sidecar: sidecar.get("lease_id") == "live-sidecar-lease",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary"]["active_lanes"] == 1
+    assert payload["summary"]["active_lanes_missing_dev_lease"] == 0
+    assert payload["summary"]["active_lanes_with_dev_lease"] == 1
+
+
+def test_operator_snapshot_does_not_count_unvalidated_native_dev_lease(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-stale-native",
+                    "owner_session": "codex-stale",
+                    "status": "active",
+                    "branch": "codex/stale",
+                    "work_id": "pr:8853",
+                    "lease_id": "stale-native-lease",
+                    "lease_status": "active",
+                    "lease_health": "ok",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary"]["active_lanes"] == 1
+    assert payload["summary"]["active_lanes_missing_dev_lease"] == 1
+    assert payload["summary"]["active_lanes_with_dev_lease"] == 0
+
+
+def test_operator_snapshot_validates_native_dev_lease_owner(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-native",
+                    "owner_session": "codex-native",
+                    "status": "active",
+                    "branch": "codex/native",
+                    "work_id": "pr:8853",
+                    "lease_id": "native-lease",
+                    "lease_status": "active",
+                    "lease_health": "ok",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    seen: list[dict[str, str]] = []
+
+    def fake_validate(record, sidecar):
+        seen.append(dict(sidecar))
+        return sidecar.get("owner_session_id") == "codex-native"
+
+    monkeypatch.setattr(mod, "_sidecar_points_to_active_dev_lease", fake_validate)
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert seen[0]["owner_session_id"] == "codex-native"
+    assert payload["summary"]["active_lanes_missing_dev_lease"] == 0
+    assert payload["summary"]["active_lanes_with_dev_lease"] == 1
 
 
 def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(

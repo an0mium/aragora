@@ -5,7 +5,7 @@ Tests both:
    is stored as a Python variable and LLM writes code to query it
 2. Fallback hierarchical summarization when RLM library not installed
 
-Install real RLM: pip install aragora[rlm]
+Install real RLM: pip install rlm
 """
 
 import asyncio

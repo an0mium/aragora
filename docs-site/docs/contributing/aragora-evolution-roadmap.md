@@ -173,7 +173,7 @@ This track turns knowledge into a reliable advantage instead of an opaque depend
 - store trust tier, provenance, and access boundaries for memory items
 - distinguish operator instruction from retrieved context
 - carry taint/provenance annotations into specs, debates, and receipts
-- design heuristic: treat session-scoped retrieval caches, KM writes, and long-horizon claim stores as distinct timescales that must declare cross-tier consolidation paths explicitly — silent merges are a finding. Non-canonical framing and analogies live in the biological-timescale analogies research brief (now archived); the heuristic itself is a D-track design rule, not a new subsystem.
+- design heuristic: treat session-scoped retrieval caches, KM writes, and long-horizon claim stores as distinct timescales that must declare cross-tier consolidation paths explicitly — silent merges are a finding. Non-canonical framing and analogies live in the archived biological-timescale analogies research brief; the heuristic itself is a D-track design rule, not a new subsystem.
 
 #### D2. Large-Context Packing
 

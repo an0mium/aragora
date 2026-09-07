@@ -15,7 +15,7 @@ Tests both:
 - Real RLM integration (arXiv:2512.24601) - REPL-based approach
 - Fallback hierarchical summarization when RLM library not installed
 
-Install real RLM: pip install aragora[rlm]
+Install real RLM: pip install rlm
 """
 
 from __future__ import annotations

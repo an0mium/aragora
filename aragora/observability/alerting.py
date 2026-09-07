@@ -333,7 +333,7 @@ class SlackNotificationChannel(NotificationChannel):
     async def _post_webhook(self, payload: dict[str, Any]) -> None:
         """Post payload to Slack webhook."""
         try:
-            from aragora.server.http_client_pool import get_http_pool
+            from aragora.observability.http_client_pool import get_http_pool
 
             pool = get_http_pool()
             async with pool.get_session("slack-alerts") as client:
@@ -520,7 +520,7 @@ class PrometheusAlertManagerChannel(NotificationChannel):
         url = f"{self.alertmanager_url}/api/v2/alerts"
 
         try:
-            from aragora.server.http_client_pool import get_http_pool
+            from aragora.observability.http_client_pool import get_http_pool
 
             pool = get_http_pool()
             async with pool.get_session("alertmanager") as client:
@@ -629,11 +629,9 @@ class MetricsCollector:
     async def _collect_debate_metrics(self, snapshot: MetricsSnapshot) -> None:
         """Collect debate-related metrics."""
         try:
-            from aragora.observability.metrics.debate import ACTIVE_DEBATES
+            from aragora.observability.server_metrics import ACTIVE_DEBATES
 
-            if ACTIVE_DEBATES is not None:
-                # Prometheus Gauge value
-                snapshot.active_debates = int(ACTIVE_DEBATES._value.get())
+            snapshot.active_debates = int(ACTIVE_DEBATES.get())
         except (ImportError, AttributeError):
             pass
 

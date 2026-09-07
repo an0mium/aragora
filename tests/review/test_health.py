@@ -258,6 +258,57 @@ class TestGatherHealthFresh:
         assert by_name["boss_metrics"].path == str(shared["overnight"] / "boss_metrics.jsonl")
         assert by_name["automation_receipts"].path == str(shared["auto"])
 
+    def test_old_briefs_are_informational_not_overall_stale(self, tmp_path: Path) -> None:
+        layout = _setup_proof_loop(tmp_path)
+        _touch_with_age(layout["receipts"] / "pr-1-recorded-1-abc-admin_squash_merge.json", 1)
+        _touch_with_age(layout["briefs"] / "pr-1-old.json", 60 * 24)
+        _touch_with_age(layout["overnight"] / "boss_metrics.jsonl", 1)
+        _touch_with_age(layout["overnight"] / "boss-loop-launchd.log", 1)
+        _touch_with_age(layout["overnight"] / "watchdog.log", 1)
+        _touch_with_age(layout["auto"] / "x.json", 1)
+        today = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        _write_status_doc(layout["docs_status"] / "B0_BENCHMARK_TRUTH_STATUS.md", today)
+        _write_status_doc(layout["docs_status"] / "TW03_RESCUE_PRODUCTIZATION_STATUS.md", today)
+
+        report = gather_health(
+            repo_root=layout["repo"],
+            review_queue_root=layout["review_queue_root"],
+            overnight_root=layout["overnight"],
+            automation_receipts_root=layout["auto"],
+        )
+
+        by_name = {s.name: s for s in report.surfaces}
+        assert by_name["briefs"].status == STATUS_AGING
+        assert by_name["briefs"].extra["informational"] is True
+        assert report.overall_status == STATUS_AGING
+
+    def test_missing_briefs_are_informational_when_review_queue_exists(
+        self, tmp_path: Path
+    ) -> None:
+        layout = _setup_proof_loop(tmp_path)
+        layout["briefs"].rmdir()
+        _touch_with_age(layout["receipts"] / "pr-1-recorded-1-abc-admin_squash_merge.json", 1)
+        _touch_with_age(layout["overnight"] / "boss_metrics.jsonl", 1)
+        _touch_with_age(layout["overnight"] / "boss-loop-launchd.log", 1)
+        _touch_with_age(layout["overnight"] / "watchdog.log", 1)
+        _touch_with_age(layout["auto"] / "x.json", 1)
+        today = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        _write_status_doc(layout["docs_status"] / "B0_BENCHMARK_TRUTH_STATUS.md", today)
+        _write_status_doc(layout["docs_status"] / "TW03_RESCUE_PRODUCTIZATION_STATUS.md", today)
+
+        report = gather_health(
+            repo_root=layout["repo"],
+            review_queue_root=layout["review_queue_root"],
+            overnight_root=layout["overnight"],
+            automation_receipts_root=layout["auto"],
+        )
+
+        by_name = {s.name: s for s in report.surfaces}
+        assert by_name["briefs"].status == STATUS_AGING
+        assert by_name["briefs"].extra["informational"] is True
+        assert "directory does not exist" in str(by_name["briefs"].detail)
+        assert report.overall_status == STATUS_AGING
+
 
 class TestGatherHealthStaleness:
     def test_boss_metrics_stale_after_critical_window(self, tmp_path: Path) -> None:

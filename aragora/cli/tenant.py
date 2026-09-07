@@ -24,10 +24,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import httpx
-
-from aragora.security.safe_http import safe_request
-
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 
 
@@ -43,6 +39,14 @@ def api_request(
     server_url: str = DEFAULT_API_URL,
 ) -> dict[str, Any]:
     """Make authenticated API request."""
+    # Deferred imports: httpx (and the safe_http wrapper that imports it) are
+    # optional runtime deps. Importing them lazily keeps the tenant subparser
+    # registrable on a base install that lacks httpx — only actually issuing a
+    # request requires it.
+    import httpx
+
+    from aragora.security.safe_http import safe_request
+
     url = f"{server_url.rstrip('/')}{path}"
     token = get_api_token()
 

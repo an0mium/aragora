@@ -740,6 +740,6 @@ satisfied (100%), partially satisfied (50%), or not satisfied (0%):
 
 - [Enterprise Compliance Guide](../enterprise/compliance) -- Operational controls and governance model
 - [API Reference](../api/reference) -- REST API documentation
-- [Gauntlet Testing](../analysis/adr) -- Adversarial stress testing
+- [Gauntlet Testing](../guides/gauntlet) -- Adversarial stress testing
 - [Decision Receipts](../api/cli) -- Receipt command and verification workflow
 - [Demo Script](../../scripts/demo_compliance.sh) -- End-to-end walkthrough in 2 minutes

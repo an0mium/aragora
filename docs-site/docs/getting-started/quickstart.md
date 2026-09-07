@@ -1,306 +1,184 @@
 ---
-title: "Developer Quickstart: Review a Real PR in 5 Minutes"
-description: "Developer Quickstart: Review a Real PR in 5 Minutes"
+title: Quickstart
+description: Quickstart
 ---
 
-# Developer Quickstart: Review a Real PR in 5 Minutes
+# Quickstart
 
-The fastest truthful path to a real result is to run `aragora review-pr` against a live GitHub pull request head. Aragora fetches the current remote diff, routes it to an available reviewer, prints the verdict in the terminal, and saves the structured artifacts to disk so you can inspect or automate against them.
+Get from zero to a working adversarial debate in under a minute.
 
-> **Want to try without API keys?** Run the full platform locally with Docker:
-> ```bash
-> docker compose -f deploy/demo/docker-compose.yml up --build
-> ```
-> Backend at `localhost:8080`, frontend at `localhost:3000`. See [Docker Quickstart](guides/QUICKSTART_DOCKER.md) for details.
-
----
-
-## Prerequisites
-
-- Python 3.11 or later
-- A local clone of the repository that owns the PR you want to review
-- GitHub CLI installed and authenticated so `gh auth status` succeeds
-- At least one available reviewer: authenticated `claude` CLI, authenticated `codex` CLI, or `OPENROUTER_API_KEY`
-
----
-
-## Step 1: Install Aragora
+**Fastest path:** already have `aragora` installed (`pip install aragora`)? Skip
+the numbered steps below and run the guided command directly -- no API keys
+required. This is the same offline chain the [Independent Verifier
+Guide](../specs/independent-verifier-guide) and
+[GitHub Action Setup](../guides/github-action-setup) both build on:
 
 ```bash
-pip install aragora
-aragora --version
+aragora quickstart --demo --no-browser --output r.json
+aragora receipt export r.json --format odr -o r.odr.json
+pip install -U 'aragora-verify>=0.1.1' && aragora-verify r.odr.json
 ```
 
-## Step 2: Run a Live `review-pr`
-
-From the checkout of the repository that owns the PR:
-
-```bash
-cd /path/to/repo
-gh auth status
-aragora review-pr 123
-```
-
-The shortest path is to pass the PR number while you are inside that repository clone. If you want to be explicit, you can also pass the full PR URL:
-
-```bash
-aragora review-pr https://github.com/owner/repo/pull/123
-```
-
-Expected terminal output looks like this:
-
-```text
-PR #123 final status: changes_requested
-Artifact dir: /path/to/repo/.aragora/review-pr/pr-123/20260322T154500Z
-Latest review: changes_requested via codex
-Findings:
-  - [P1] Missing null guard on webhook payload
-```
-
-Every run writes durable files under the printed artifact directory:
-
-- `run.json` -- final summary for the whole run
-- `review-1.json` -- structured reviewer output
-- `review-1.diff` -- the exact diff snapshot Aragora reviewed
-
-Exit codes are stable for scripting:
-
-- `0` -- review passed
-- `2` -- reviewer requested changes
-- `1` -- review was blocked or non-reviewable
-
-`review-pr` is intentionally a live GitHub path. It does not have a demo mode. If you only want to preview the review format locally, use `aragora review --demo`.
-
-## Step 3: Optional Fix-and-Rerun Loop
-
-If the first pass returns `changes_requested`, Aragora can hand the findings to a fixer, push the branch, and re-review the updated head:
-
-```bash
-aragora review-pr 123 --fixer codex --auto-rerun
-```
-
-When you use the fix loop, Aragora also writes:
-
-- `fix.json` -- fixer status, pushed commit SHAs, and worktree details
-- `review-2.json` -- the follow-up review after the fixer push
-
-Use `--keep-worktree` if you want to inspect the detached fixer worktree afterward.
-
-## Step 4: Automate the Same Review on Every PR
-
-Once you have a real local run working, add the GitHub Action so every PR gets the same review flow automatically.
-
-### 4a. Add API keys as GitHub Secrets
-
-Go to your repo: **Settings > Secrets and variables > Actions > New repository secret**
-
-Add at least one:
-
-| Secret Name | Provider |
-|-------------|----------|
-| `ANTHROPIC_API_KEY` | [Anthropic Console](https://console.anthropic.com/) |
-| `OPENAI_API_KEY` | [OpenAI Platform](https://platform.openai.com/) |
-
-### 4b. Create the workflow file
-
-Create `.github/workflows/aragora-review.yml` in your repository:
-
-```yaml
-name: Aragora AI Review
-on:
-  pull_request:
-    types: [opened, synchronize]
-
-permissions:
-  pull-requests: write
-  contents: read
-
-jobs:
-  review:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: synaptent/aragora@main
-        with:
-          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-```
-
-Commit and push. Every new PR will now get an AI code review.
+This runs a demo debate, exports the receipt to the portable ODR format, and
+verifies it offline with the standalone verifier -- exit `0` end to end.
+`aragora-verify`'s full exit-code contract is `0 verified / 1 failed / 2 usage /
+3 signatures-present-unchecked`. Run `aragora quickstart --help` for the
+live-provider and spec-first variants.
 
 ---
 
-## Step 5: Read the PR Comment
-
-When the action runs, it posts a comment on your PR with these sections:
-
-### Unanimous Issues
-
-Findings that all AI models agree on. These have the highest confidence and almost always warrant action.
-
-```
-## Unanimous Issues (2)
-1. SQL injection vulnerability in user search -- query built with string concatenation
-2. Missing input validation on file upload endpoint
-```
-
-### Split Opinions
-
-Findings where models disagree. These are presented as tradeoffs for your judgment, not as directives.
-
-```
-## Split Opinions (2)
-- Add request rate limiting
-  Majority: anthropic-api, openai-api | Minority: gemini-api
-- Cache database queries
-  Majority: anthropic-api | Minority: openai-api, gemini-api
-```
-
-### Risk Areas
-
-Lower-confidence findings flagged for manual review.
-
-### Agreement Score
-
-A 0-1 score indicating how much the models agreed overall. Higher scores mean more consensus across the review. A score of 0.75+ generally indicates strong agreement on the key findings.
-
----
-
-## Step 6: Customize Diff-Based Review
-
-`aragora review` is the diff-driven sibling of `review-pr`. Use it when you want to review local changes, run a demo, or export SARIF without fetching a live PR head.
-
-### Focus areas
-
-Narrow the review to specific concerns:
+## 1. Install
 
 ```bash
-aragora review --focus security,performance
+pip install aragora aragora-debate
 ```
 
-In the GitHub Action:
+The full `aragora` distribution provides the `aragora` CLI used by the
+fastest-path ODR commands above. The smaller `aragora-debate` package provides
+the Python module used by the demo and code examples below.
 
-```yaml
-- uses: synaptent/aragora@main
-  with:
-    anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-    focus: 'security'
-```
+## 2. Zero-Key Demo
 
-### SARIF export
-
-Export findings as SARIF 2.1.0 for IDE integration and the GitHub Security tab:
+No API keys required. The offline demo runs a complete adversarial debate with
+mock agents:
 
 ```bash
-aragora review --sarif
+python3 -m aragora_debate
 ```
 
-This creates `review-results.sarif` by default. Specify a custom path:
+You'll see three agents propose, critique each other, vote, reach consensus, and
+produce an audit-ready decision receipt with a SHA-256 verdict hash.
+
+(If you installed the full platform instead — `pip install -U 'aragora>=2.9.0'`
+— the equivalent zero-key receipt demo is
+`aragora demo --offline --receipt aragora-demo-receipt.json`, followed by
+`aragora receipt verify aragora-demo-receipt.json`.)
+
+## 3. Three-Line Debate (Python)
+
+```python
+import asyncio
+
+from aragora_debate.arena import Arena
+from aragora_debate.styled_mock import StyledMockAgent
+
+agents = [
+    StyledMockAgent("analyst", style="supportive"),
+    StyledMockAgent("critic", style="critical"),
+    StyledMockAgent("pm", style="balanced"),
+]
+arena = Arena(question="Should we adopt GraphQL?", agents=agents)
+result = asyncio.run(arena.run())
+print(result.receipt.to_markdown())
+```
+
+## 4. Add Real AI Models
+
+Set both provider keys for the two-model example below. If you only have one
+provider key, remove the other `create_agent(...)` entry.
 
 ```bash
-aragora review --sarif findings.sarif
+export ANTHROPIC_API_KEY="sk-ant-..."   # Claude
+# or
+export OPENAI_API_KEY="sk-..."          # GPT
 ```
 
-In the GitHub Action, enable SARIF output:
-
-```yaml
-- uses: synaptent/aragora@main
-  with:
-    anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-    output-format: 'sarif'
-    sarif-upload: 'true'
-```
-
-### Fail builds on critical issues
-
-Block PRs that have critical security findings:
-
-```yaml
-- uses: synaptent/aragora@main
-  with:
-    anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-    fail-on-critical: 'true'
-```
-
-Then in your repo's **Settings > Branches > Branch protection rules**, enable "Require status checks to pass" and add the review job as a required check.
-
-### Gauntlet mode
-
-Run an adversarial stress-test after the standard review. The gauntlet uses attack/defend cycles to probe deeper for vulnerabilities:
+Install the full `aragora` package before using the platform API imports below:
 
 ```bash
-aragora review --gauntlet
+pip install -U 'aragora>=2.9.0'
 ```
 
-### Adjust debate depth
+Then run a real debate:
 
-More rounds means more thorough review (and higher API cost):
+```python
+import asyncio
+from aragora import Arena, Environment, DebateProtocol
+from aragora.agents import create_agent
 
-```yaml
-- uses: synaptent/aragora@main
-  with:
-    anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-    rounds: '3'
+env = Environment(task="Design a rate limiter for our API")
+protocol = DebateProtocol(rounds=3, consensus="majority")
+
+agents = [
+    create_agent("anthropic-api", name="claude", role="proposer"),
+    create_agent("openai-api", name="openai", role="critic"),
+]
+arena = Arena(env, agents=agents, protocol=protocol)
+result = asyncio.run(arena.run())
+print(result.summary())
 ```
 
-### Filter by file type
-
-Only trigger reviews on relevant file changes:
-
-```yaml
-on:
-  pull_request:
-    paths:
-      - '**.py'
-      - '**.ts'
-      - '**.js'
-```
-
----
-
-## Advanced: Self-Hosted
-
-Run the Aragora server locally or on your own infrastructure for full API access:
+## 5. TypeScript SDK
 
 ```bash
+npm install @aragora/sdk
+```
+
+```typescript
+import { AragoraClient } from "@aragora/sdk";
+
+const client = new AragoraClient({ baseUrl: "http://localhost:8080" });
+const result = await client.debates.create({
+  task: "Should we use microservices or a monolith?",
+  agents: ["claude", "gpt-4"],
+  rounds: 3,
+});
+console.log(result.debate_id, result.status);
+```
+
+## 6. Self-Host the Full Platform
+
+```bash
+docker compose -f deploy/demo/docker-compose.yml up
+```
+
+Then visit:
+- **Landing page:** http://localhost:3000
+- **API docs (Swagger):** http://localhost:8080/api/v2/docs
+- **API docs (Redoc):** http://localhost:8080/api/v2/redoc
+- **Interactive playground:** http://localhost:3000/playground
+
+## 7. CLI
+
+Current PyPI package:
+
+```bash
+pip install -U 'aragora>=2.9.0'
+aragora demo --offline --receipt aragora-demo-receipt.json
+aragora receipt verify aragora-demo-receipt.json
+aragora ask "Should we build or buy our auth system?"   # real debate (needs an API key)
 aragora serve --api-port 8080 --ws-port 8765
 ```
 
-This gives you the REST API (3,000+ operations), WebSocket streaming, and programmatic access to debates, receipts, and analytics.
+Current source checkout:
 
-Start with the [Curated API Reference](../api-reference) for the essential endpoints most teams use first, use the [Full API Reference](../api/reference) for endpoint-level schemas and details, and see the [Documentation Index](../contributing/documentation-index) for architecture navigation.
+```bash
+python3 -m pip install -e .
+aragora demo --offline --receipt aragora-demo-receipt.json
+aragora receipt verify aragora-demo-receipt.json
+```
 
----
+Use `aragora>=2.9.0` for the explicit offline demo receipt round trip shown
+above. Earlier PyPI releases do not support the `--offline` receipt flags. Use
+the source checkout path when you need to audit this exact branch or unreleased
+local changes.
 
-## What Makes This Different
-
-**Multi-model consensus, not a single opinion.** Standard AI code review tools run one model and present its output as truth. Aragora runs multiple models independently, then has them debate. You see where they agree (act on these) and where they disagree (use your judgment).
-
-**Disagreement is a feature.** Split opinions are explicitly surfaced. When Claude flags a security issue but GPT-4 does not, that tells you something different than when both flag it. The disagreement itself is informative.
-
-**Cryptographic decision receipts.** Every review produces a SHA-256 hashed audit trail -- which models participated, what they found, how they voted, and what the consensus was. This is not a log file; it is a verifiable receipt.
-
-**SARIF integration.** Findings export as standard SARIF 2.1.0, which means they show up in the GitHub Security tab alongside your other code scanning tools, and in any IDE that supports SARIF.
-
----
-
-## Cost Estimate
-
-Approximate cost per review (2 agents, 2 rounds, typical PR):
-
-| Provider | Cost per Review |
-|----------|----------------|
-| Anthropic Claude | ~$0.05-0.15 |
-| OpenAI GPT-4 | ~$0.10-0.30 |
-| OpenRouter fallback | ~$0.02-0.10 |
-
----
+`aragora receipt verify` above checks the **native** demo receipt (exit 0/1);
+it is a different verb from the standalone `aragora-verify` used on the
+portable `.odr.json` artifact in the fastest path at the top of this page. For
+the contributor dev/test install, use the declared form
+`pip install -e ".[test]"` -- see `docs/reference/INSTALL_MATRIX.md` for the
+full per-audience breakdown.
 
 ## Next Steps
 
-- [Curated API Reference](../api-reference) -- essential endpoints for debates, agents, knowledge, and workflows
-- [API Quickstart](../guides/api-quickstart) -- start the server and hit your first endpoint in 5 minutes
-- [SDK Quickstart](../guides/sdk-quickstart) -- install-to-first-debate in under 2 minutes
-- [Full API Reference](../api/reference) -- complete REST API documentation (3,000+ operations)
-- [Documentation Index](../contributing/documentation-index) -- architecture, memory tiers, and reference entry points
-- Example workflows: `examples/github-action/` in the repository
+| Guide | What you'll learn |
+|-------|-------------------|
+| [Receipt Lineage Reconciliation](../specs/receipt-lineage-reconciliation) | What a Decision Receipt is: the native record vs. the portable ODR |
+| [Independent Verifier Guide](../specs/independent-verifier-guide) | Verify a receipt offline with `aragora-verify`, no Aragora install required |
+| [GitHub Action Setup](../guides/github-action-setup) | Add multi-model CI review + receipts to your pull requests |
+| [CLI Reference](../api/cli) | All CLI commands and flags |
+| [SDK Guide](../guides/sdk) | Python & TypeScript SDK reference |
+| [API Reference](../api/reference) | REST API endpoints |
+| [Self-Hosting](../deployment/overview) | Production deployment |
+| [Documentation Landing](https://github.com/synaptent/aragora/blob/main/docs/README.md) | Deeper architectural overview |

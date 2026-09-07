@@ -473,7 +473,9 @@ class FeatureFlagRegistry:
             "fusion_cost_budget_per_debate",
             float,
             50.0,
-            "[scaffolding; enforcement lands in the nomic-integration PR] Max USD on Fusion calls per debate before falling back to normal agents",
+            "Per-debate Fusion budget (USD). Planning gates on this: a value <= 0 keeps "
+            "Fusion out of planning debates even when enable_fusion is on. Live per-call "
+            "USD enforcement is handled by the billing budget manager.",
             FlagCategory.BILLING,
         )
         self.register(
@@ -497,6 +499,15 @@ class FeatureFlagRegistry:
             FlagCategory.EXPERIMENTAL,
             FlagStatus.BETA,
             env_var="ARAGORA_ENABLE_CODEX_BRIDGE",
+        )
+        self.register(
+            "enable_fusion_quorum_tiebreak",
+            bool,
+            False,
+            "Run an advisory, non-counting OpenRouter Fusion tie-breaker when merge-quorum reviewers split",
+            FlagCategory.EXPERIMENTAL,
+            FlagStatus.BETA,
+            env_var="ARAGORA_ENABLE_FUSION_QUORUM_TIEBREAK",
         )
         # Knowledge Mound flags
         self.register(

@@ -43,7 +43,7 @@ from aragora.server.handlers.cross_pollination import (
 
 # Patch targets for local imports inside handler methods
 _PATCH_MGR = "aragora.events.cross_subscribers.get_cross_subscriber_manager"
-_PATCH_BRIDGE = "aragora.events.arena_bridge.EVENT_TYPE_MAP"
+_PATCH_BRIDGE = "aragora.debate.arena_bridge.EVENT_TYPE_MAP"
 _PATCH_METRICS = "aragora.server.prometheus_cross_pollination.get_cross_pollination_metrics_text"
 _PATCH_RANKING = "aragora.knowledge.mound.adapters.RankingAdapter"
 _PATCH_RLM = "aragora.knowledge.mound.adapters.rlm_adapter.RlmAdapter"
@@ -441,7 +441,7 @@ class TestCrossPollinationBridgeHandler:
     @pytest.mark.asyncio
     async def test_get_import_error(self):
         h = self._make()
-        with patch.dict("sys.modules", {"aragora.events.arena_bridge": None}):
+        with patch.dict("sys.modules", {"aragora.debate.arena_bridge": None}):
             result = await h.get.__wrapped__(h)
         assert _status(result) == 503
 

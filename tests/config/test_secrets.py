@@ -28,6 +28,9 @@ from aragora.config.secrets import (
     SecretPresence,
     SecretManager,
     SecretsConfig,
+    _fail_fast_mfa_prompter,
+    _has_controlling_tty,
+    _mfa_prompt_allowed,
     SecretNotFoundError,
     clear_secret_cache,
     get_required_secret,
@@ -322,7 +325,12 @@ class TestSecretManagerAWS:
 
         assert manager._aws_clients == {}
 
-        with patch("boto3.client") as mock_boto:
+        # Force the interactive path so this exercises default-client config plumbing
+        # (the non-interactive MFA guard has its own dedicated tests).
+        with (
+            patch("boto3.client") as mock_boto,
+            patch("aragora.config.secrets._has_controlling_tty", return_value=True),
+        ):
             mock_boto.return_value = MagicMock()
             client = manager._get_aws_client(manager.config.aws_region)
             assert client is not None
@@ -829,3 +837,101 @@ class TestStrictMode:
         """Module-level usability helper does not count placeholders."""
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": "short"}, clear=True):
             assert is_secret_usable("OPENROUTER_API_KEY", strict=False) is False
+
+
+class TestNonInteractiveMfaGuard:
+    """The headless-hang fix: a non-interactive process must never block on an AWS
+    MFA getpass prompt — it must fail fast and fall back to env/.env secrets."""
+
+    def test_prompt_allowed_only_when_interactive(self):
+        assert _mfa_prompt_allowed(isatty=True, env={}) is True
+        assert _mfa_prompt_allowed(isatty=False, env={}) is False
+
+    def test_explicit_override_allows_prompt_even_headless(self):
+        for val in ("1", "true", "YES"):
+            assert (
+                _mfa_prompt_allowed(isatty=False, env={"ARAGORA_AWS_ALLOW_MFA_PROMPT": val}) is True
+            )
+
+    def test_fail_fast_prompter_raises_instead_of_blocking(self):
+        with pytest.raises(RuntimeError, match="no TTY"):
+            _fail_fast_mfa_prompter("Enter MFA code: ")
+
+    def test_build_client_uses_guarded_session_when_headless(self):
+        """Non-interactive => the assume-role MFA prompter is neutered via a custom
+        botocore session, never the default (hang-prone) client."""
+        manager = SecretManager(SecretsConfig())
+        fake_boto3 = MagicMock()
+        with (
+            patch("aragora.config.secrets._has_controlling_tty", return_value=False),
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            manager._build_client(fake_boto3, "us-east-1", MagicMock())
+        fake_boto3.Session.assert_called_once()  # guarded session path
+        fake_boto3.client.assert_not_called()  # never the unguarded default
+
+    def test_build_client_uses_default_when_interactive(self):
+        manager = SecretManager(SecretsConfig())
+        fake_boto3 = MagicMock()
+        with patch("aragora.config.secrets._has_controlling_tty", return_value=True):
+            manager._build_client(fake_boto3, "us-east-1", MagicMock())
+        fake_boto3.client.assert_called_once()  # normal interactive path
+        fake_boto3.Session.assert_not_called()
+
+    def test_real_botocore_prompter_is_failfast_when_headless(self):
+        """End-to-end against real botocore: the assume-role provider's prompter is
+        replaced with the fail-fast one (so it can't getpass-hang). The guard reaches
+        the botocore session via boto3's ``_session`` wrapper."""
+        import botocore.session
+
+        manager = SecretManager(SecretsConfig())
+        real_botocore_session = botocore.session.get_session()
+
+        class _FakeSession:
+            _session = real_botocore_session
+
+            def client(self, **_kw):
+                return MagicMock()
+
+        fake_boto3 = MagicMock()
+        fake_boto3.Session = _FakeSession
+        with (
+            patch("aragora.config.secrets._has_controlling_tty", return_value=False),
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            manager._build_client(fake_boto3, "us-east-1", MagicMock())
+
+        # `get_session()` returns a fresh, isolated session per call, so this mutation
+        # does not leak into other tests.
+        provider = real_botocore_session.get_component("credential_provider").get_provider(
+            "assume-role"
+        )
+        assert provider._prompter is _fail_fast_mfa_prompter
+
+    def test_guard_install_failure_fails_closed_not_back_to_default(self):
+        """grok [P2]: if the MFA guard can't be installed in a headless process, we
+        must NOT fall back to the unguarded boto3.client() — that would re-enter the
+        exact getpass hang. Returns None so the caller uses env/.env secrets."""
+        manager = SecretManager(SecretsConfig())
+        fake_boto3 = MagicMock()
+        fake_boto3.Session.side_effect = RuntimeError("botocore internals changed")
+        with (
+            patch("aragora.config.secrets._has_controlling_tty", return_value=False),
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            result = manager._build_client(fake_boto3, "us-east-1", MagicMock())
+        assert result is None  # fail closed
+        fake_boto3.client.assert_not_called()  # never the hang-prone default
+
+    def test_controlling_tty_probe_matches_dev_tty_openability(self):
+        """grok [P2]: the gate probes /dev/tty (what getpass uses), not stdin —
+        independent of the test runner's own terminal state."""
+        with patch("aragora.config.secrets.os.open", side_effect=OSError):
+            assert _has_controlling_tty() is False
+        with (
+            patch("aragora.config.secrets.os.open", return_value=7) as op,
+            patch("aragora.config.secrets.os.close") as cl,
+        ):
+            assert _has_controlling_tty() is True
+            op.assert_called_once()
+            cl.assert_called_once_with(7)  # fd is closed, not leaked

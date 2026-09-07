@@ -936,8 +936,9 @@ class TestMatrixDebateRunner:
 
         result = await runner.run_matrix("Test", matrix)
 
-        # First scenario should have error in conclusion
-        assert "Error" in result.results[0].conclusion
+        # First scenario should report the structured data-error fallback.
+        assert result.results[0].conclusion == "Scenario debate encountered a data error"
+        assert result.results[0].metadata["error"] == "data_error"
         assert result.results[0].confidence == 0.0
 
     @pytest.mark.asyncio

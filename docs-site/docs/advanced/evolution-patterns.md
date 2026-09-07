@@ -108,7 +108,7 @@ GET /api/evolution/summary
 ### Get Agent Evolution History
 
 ```http
-GET /api/evolution/\{agent\}/history?limit=10
+GET /api/evolution/{agent}/history?limit=10
 ```
 
 **Response:**
@@ -271,7 +271,7 @@ patterns = evolver.get_incorporation_candidates(
 for pattern in patterns:
     # Generate prompt modification
     modification = evolver.generate_pattern_instruction(pattern)
-    print(f"Add to prompt: \{modification\}")
+    print(f"Add to prompt: {modification}")
 ```
 
 ## Effectiveness Scoring
@@ -368,7 +368,7 @@ content = "Your debate message here..."
 
 # Get matching markers
 matches = extractor._find_marker_matches(content, PatternExtractor.EVIDENCE_MARKERS)
-print(f"Evidence markers found: \{matches\}")
+print(f"Evidence markers found: {matches}")
 ```
 
 ### Low Effectiveness Scores

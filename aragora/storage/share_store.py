@@ -18,7 +18,6 @@ import os
 import secrets
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -26,9 +25,7 @@ from aragora.storage.backends import (
     PostgreSQLBackend,
 )
 from aragora.storage.base_store import SQLiteStore
-
-if TYPE_CHECKING:
-    from aragora.server.handlers.social.sharing import ShareSettings
+from aragora.storage.share_models import DebateVisibility, ShareSettings
 
 logger = logging.getLogger(__name__)
 
@@ -474,9 +471,6 @@ class ShareLinkStore(SQLiteStore):
 
     def _row_to_settings(self, row: tuple) -> ShareSettings:
         """Convert a database row to ShareSettings object."""
-        # Import here to avoid circular dependency
-        from aragora.server.handlers.social.sharing import DebateVisibility, ShareSettings
-
         return ShareSettings(
             debate_id=row[1],
             visibility=DebateVisibility(row[2]),

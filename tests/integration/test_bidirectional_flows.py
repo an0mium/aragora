@@ -18,11 +18,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.events.types import StreamEvent, StreamEventType
-from aragora.events.cross_subscribers import (
-    CrossSubscriberManager,
-    get_cross_subscriber_manager,
-    reset_cross_subscriber_manager,
-)
+from aragora.events.cross_subscribers import reset_cross_subscriber_manager
 
 
 # ============================================================================
@@ -33,8 +29,10 @@ from aragora.events.cross_subscribers import (
 @pytest.fixture
 def fresh_manager():
     """Get a fresh subscriber manager for each test."""
+    from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+
     reset_cross_subscriber_manager()
-    manager = get_cross_subscriber_manager()
+    manager = bootstrap_debate_event_subscribers()
     yield manager
     reset_cross_subscriber_manager()
 

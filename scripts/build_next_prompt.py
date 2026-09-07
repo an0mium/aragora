@@ -17,6 +17,7 @@ from typing import Any
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "lanes.json"
 DEFAULT_AUTOMATION_OUTBOX_DIR = Path(".aragora") / "automation-outbox"
+DEFAULT_BACKPRESSURE_SIGNAL_FILE = Path(".aragora") / "backpressure.json"
 ACTIVE_STATUSES = {
     "active",
     "running",
@@ -51,6 +52,7 @@ PENDING_CHECK_STATES = {
     "REQUESTED",
     "WAITING",
 }
+MERGE_READY_PROMPT_MERGE_STATE_STATUSES = {"CLEAN"}
 POST_MERGE_LANE_KEYWORDS = ("evidence", "review", "quorum", "settle", "settlement")
 UNRESOLVED_OPERATOR_CHOICE_MARKERS = (
     "1|2|3",
@@ -60,6 +62,17 @@ UNRESOLVED_OPERATOR_CHOICE_MARKERS = (
     "<terminate",
     "<supersede",
 )
+BACKPRESSURE_GENERATE_MODE = "generate"
+BACKPRESSURE_SHEPHERD_MODES = {
+    "hold",
+    "pause",
+    "shepherd",
+    "stop",
+    "saturated",
+    "pivot",
+    "missing",
+    "malformed",
+}
 
 
 def _read_lanes(path: Path) -> list[dict[str, Any]]:
@@ -124,15 +137,34 @@ def _repo_runner(repo_root: Path) -> CommandRunner:
 
 
 def _json_or_empty(result: subprocess.CompletedProcess[str]) -> Any:
+    text = (result.stdout or "").strip()
+    if text:
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            if result.returncode == 0:
+                return {"raw": text}
+        else:
+            if result.returncode != 0:
+                if not isinstance(payload, dict):
+                    return {
+                        "error": result.stderr.strip()
+                        or f"command failed with return code {result.returncode}",
+                        "returncode": result.returncode,
+                        "payload": payload,
+                    }
+                payload = dict(payload)
+                # Overwrite (not setdefault): a child that exits nonzero must not
+                # mask the failure via a stale "returncode": 0 in its own stdout.
+                payload["returncode"] = result.returncode
+                if not payload.get("error"):
+                    payload["error"] = result.stderr.strip() or (
+                        f"command failed with return code {result.returncode}"
+                    )
+            return payload
     if result.returncode != 0:
         return {"error": result.stderr.strip(), "returncode": result.returncode}
-    text = (result.stdout or "").strip()
-    if not text:
-        return {}
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return {"raw": text}
+    return {}
 
 
 def _run_json(command: list[str], command_runner: CommandRunner) -> Any:
@@ -212,6 +244,146 @@ def _operator_choice_placeholder_guard_prompt(
             "",
         ]
     )
+
+
+def _load_backpressure_signal(signal_file: Path) -> dict[str, Any]:
+    """Read the optional backlog/backpressure signal for writer-loop prompts."""
+
+    if not signal_file.exists():
+        return {
+            "available": False,
+            "mode": "missing",
+            "reasons": [f"signal_file_missing:{signal_file}"],
+            "annotations": [],
+            "source": str(signal_file),
+        }
+    try:
+        payload = json.loads(signal_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {
+            "available": False,
+            "mode": "malformed",
+            "reasons": [f"signal_file_unreadable:{str(exc)[:200]}"],
+            "annotations": [],
+            "source": str(signal_file),
+        }
+    if not isinstance(payload, dict):
+        return {
+            "available": False,
+            "mode": "malformed",
+            "reasons": ["signal_payload_not_object"],
+            "annotations": [],
+            "source": str(signal_file),
+        }
+    payload = _sanitize(payload)
+    assert isinstance(payload, dict)
+    payload.setdefault("available", True)
+    payload.setdefault("source", str(signal_file))
+    return payload
+
+
+def _backpressure_mode(signal: dict[str, Any]) -> str:
+    return str(signal.get("mode") or "missing").strip().lower()
+
+
+def build_product_proof_loop_prompt(
+    *,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+    signal_file: Path | None = None,
+) -> str:
+    """Build a recursive prompt that consults the backlog signal before new PR work."""
+
+    if signal_file is None:
+        signal_file = repo_root / DEFAULT_BACKPRESSURE_SIGNAL_FILE
+    signal = _load_backpressure_signal(signal_file)
+    mode = _backpressure_mode(signal)
+    reasons = signal.get("reasons")
+    reason_summary = (
+        ", ".join(str(reason) for reason in reasons)
+        if isinstance(reasons, list) and reasons
+        else "none"
+    )
+    annotations = signal.get("annotations")
+    annotation_summary = (
+        ", ".join(str(annotation) for annotation in annotations)
+        if isinstance(annotations, list) and annotations
+        else "none"
+    )
+    thresholds = signal.get("thresholds") if isinstance(signal.get("thresholds"), dict) else {}
+    threshold_summary = json.dumps(thresholds, sort_keys=True) if thresholds else "unknown"
+    open_prs = signal.get("open_prs", "unknown")
+    drafts = signal.get("drafts", "unknown")
+    ready = signal.get("ready", "unknown")
+    outbox_depth = signal.get("outbox_depth", "unknown")
+    generated_at = signal.get("generated_at") or "unknown"
+
+    gate_summary = (
+        f"mode={mode}, open_prs={open_prs}, drafts={drafts}, ready={ready}, "
+        f"outbox_depth={outbox_depth}, thresholds={threshold_summary}, "
+        f"generated_at={generated_at}, reasons={reason_summary}, "
+        f"annotations={annotation_summary}"
+    )
+    signal_command = (
+        "python3 scripts/backlog_gate.py --quiet || true"
+        if signal_file == repo_root / DEFAULT_BACKPRESSURE_SIGNAL_FILE
+        else f"python3 scripts/backlog_gate.py --signal-file {shlex.quote(str(signal_file))} --quiet || true"
+    )
+
+    lines = [
+        f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
+        "Keep the shared root observation-only if dirty. Use a fresh disposable worktree from current origin/main for any code work.",
+        "",
+        "Goal: reduce product-proof / benchmark-truth opportunity cost by consulting the backlog backpressure signal before minting another micro-guard PR.",
+        "",
+        "First refresh and verify the backpressure signal:",
+        "git fetch origin --prune",
+        signal_command,
+        f"cat {shlex.quote(str(signal_file))}",
+        "",
+        "Signal snapshot to verify, not trust:",
+        gate_summary,
+        "",
+        "Re-check open draft/ready PRs, active owners, and duplicate newer PRs before choosing any action.",
+    ]
+
+    if mode == BACKPRESSURE_GENERATE_MODE:
+        lines.extend(
+            [
+                "",
+                "If the refreshed signal still says mode=generate, find exactly one new non-duplicate Tier 0-2 measurable gap in product-proof or benchmark-truth reporting, prefer non-mutating benchmark/report helpers, patch only that narrow surface, add focused tests, validate with ${ARAGORA_PYTHON:-python3}, run bash scripts/automation_pr_preflight.sh origin/main HEAD, push a draft PR with codex and codex-automation labels, and verify required checks.",
+                "Stop before semantic/security/API changes, settlement/merge/protection workflows, queue authority, or any branch/PR with an active owner.",
+            ]
+        )
+    elif mode in BACKPRESSURE_SHEPHERD_MODES:
+        lines.extend(
+            [
+                "",
+                f"If the refreshed signal still says mode={mode}, do not create a new branch, commit, or PR.",
+                "Instead, shepherd existing work: select the highest-value existing unowned green Tier 0-2 product-proof / benchmark-truth PR for evidence/readiness/merge-throughput handling, or report that no safe unowned target exists.",
+                "Do not merge, mark ready, post evidence, rerun workflows, write receipts, or touch queue authority without a separate exact-head authorization prompt.",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "",
+                f"The refreshed signal mode is unrecognized ({mode}). Treat it fail-closed: do not create a new branch, commit, or PR.",
+                "Report the exact signal payload and produce a repair prompt for the signal producer or prompt router.",
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "If blocked, report the exact blocker and produce the next recursive prompt.",
+            "Final report: signal mode, duplicate/owner findings, action taken or withheld, validation if any, PR URL if any, and the next best recursive prompt.",
+            CONVERGENCE_SENTENCE,
+            "If any of the work involved can be better automated and made more autonomous by improving Aragora tooling at a meta level create a plan to do that instead, include this sentence in all subsequent prompts to ensure they converge towards automating and making more autonomous all steps at a meta level where this makes sense for the repo and project.",
+            "Always include a final summary or report section with the best next recursive prompt in a form similar to this one, include this sentence in all subsequent prompts to ensure they converge towards prompts that produce their next best recursive prompt.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _tmux_pane_packet(command_runner: CommandRunner) -> dict[str, Any]:
@@ -708,6 +880,8 @@ def _owner_lookup_packet(
 def _is_stale_mailbox_only_owner(owner_state: Any) -> bool:
     if not isinstance(owner_state, dict):
         return False
+    if str(owner_state.get("owner_blocking_state") or "") == "stale_terminal_owner":
+        return False
     if str(owner_state.get("status") or "") not in ACTIVE_STATUSES:
         return False
     live_process = owner_state.get("live_process")
@@ -864,9 +1038,73 @@ def _select_merge_ready_entry(merge_packet: Any, *, pr: int | None = None) -> di
     return _merge_packet_entry(merge_packet, target_pr)
 
 
+def _selected_merge_ready_pr_number(merge_packet: Any, *, pr: int | None = None) -> int | None:
+    entry = _select_merge_ready_entry(merge_packet, pr=pr)
+    try:
+        return int(entry.get("pr_number"))
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def _live_pr_metadata_blocker(
+    live_pr: Any,
+    *,
+    pr_number: int,
+    expected_head: str,
+) -> str:
+    if live_pr is None:
+        return f"live PR metadata for PR #{pr_number} is missing"
+    if not isinstance(live_pr, dict) or not live_pr:
+        return f"live PR metadata for PR #{pr_number} is missing or malformed"
+    if live_pr.get("error"):
+        return f"live PR metadata for PR #{pr_number} is unavailable: {live_pr.get('error')}"
+    try:
+        live_number = int(live_pr.get("number"))
+    except (TypeError, ValueError):
+        return f"live PR metadata for PR #{pr_number} is missing a parseable number"
+    if live_number != pr_number:
+        return f"live PR metadata number {live_number} does not match requested PR #{pr_number}"
+    state = str(live_pr.get("state") or "").upper()
+    if state != "OPEN":
+        return f"PR #{pr_number} is not open in live metadata: state={state or 'unknown'}"
+    if bool(live_pr.get("isDraft")):
+        return f"PR #{pr_number} is draft in live metadata"
+    live_head = str(live_pr.get("headRefOid") or "")
+    if not live_head:
+        return f"live PR metadata for PR #{pr_number} is missing an exact head"
+    if live_head != expected_head:
+        return (
+            f"live PR head {live_head} does not match merge-packet head {expected_head} "
+            f"for PR #{pr_number}"
+        )
+    mergeable = str(live_pr.get("mergeable") or "").upper()
+    merge_state = str(live_pr.get("mergeStateStatus") or "").upper()
+    if mergeable != "MERGEABLE" or merge_state not in MERGE_READY_PROMPT_MERGE_STATE_STATUSES:
+        return (
+            f"PR #{pr_number} is not settlement-stable in live metadata: "
+            f"mergeable={mergeable or 'unknown'}, mergeStateStatus={merge_state or 'unknown'}"
+        )
+    return ""
+
+
 def _merge_ready_prompt_blocker(merge_packet: Any, *, pr: int | None = None) -> str:
     if not isinstance(merge_packet, dict) or not merge_packet:
         return "merge-packet is missing or malformed"
+    if merge_packet.get("transport_blocked") or merge_packet.get("status") == "transport_blocked":
+        kind = _prompt_one_line(merge_packet.get("error_kind")) or "unknown transport"
+        detail = _prompt_one_line(merge_packet.get("error")) or "live GitHub transport unavailable"
+        preserve = "; preserve_no_mutate=true" if merge_packet.get("preserve_no_mutate") else ""
+        return f"merge-packet transport blocked ({kind}): {detail}{preserve}"
+    if merge_packet.get("error"):
+        detail = _prompt_one_line(merge_packet.get("error")) or "command failed without details"
+        return f"merge-packet is unavailable: {detail}"
+    if "returncode" in merge_packet:
+        try:
+            returncode = int(merge_packet["returncode"])
+        except (TypeError, ValueError):
+            return "merge-packet has an invalid command return code"
+        if returncode != 0:
+            return f"merge-packet command failed with return code {returncode}"
     entry = _select_merge_ready_entry(merge_packet, pr=pr)
     if not entry:
         target = f"PR #{pr}" if pr is not None else "admin_squash_order"
@@ -889,6 +1127,13 @@ def _merge_ready_prompt_blocker(merge_packet: Any, *, pr: int | None = None) -> 
         return f"merge-packet ready entry for PR #{pr_number} is missing a parseable tier"
     if tier >= 3:
         return f"PR #{pr_number} is Tier {tier}, not an autonomous merge-ready prompt target"
+    live_blocker = _live_pr_metadata_blocker(
+        merge_packet.get("live_pr"),
+        pr_number=pr_number,
+        expected_head=str(entry.get("head_sha") or entry.get("headRefOid") or ""),
+    )
+    if live_blocker:
+        return live_blocker
     return ""
 
 
@@ -1140,9 +1385,23 @@ def build_merge_ready_packet(
         command.extend(["--limit", str(limit)])
     command.append("--json")
     packet = _run_json(command, runner)
-    return (
-        packet if isinstance(packet, dict) else {"error": "merge-packet did not return an object"}
-    )
+    if not isinstance(packet, dict):
+        return {"error": "merge-packet did not return an object"}
+    pr_number = _selected_merge_ready_pr_number(packet, pr=pr)
+    if pr_number is not None:
+        packet = dict(packet)
+        packet["live_pr"] = _run_json(
+            [
+                "gh",
+                "pr",
+                "view",
+                str(pr_number),
+                "--json",
+                "number,state,isDraft,headRefOid,mergeable,mergeStateStatus,url",
+            ],
+            runner,
+        )
+    return packet
 
 
 def build_merge_ready_prompt(
@@ -1414,6 +1673,49 @@ def _mailbox_command(lane: dict[str, Any] | None, *, pr: int | None, branch: str
     return "python3 scripts/agent_bridge.py operator-snapshot --json --summary-only || true"
 
 
+def _prompt_work_id(
+    lane: dict[str, Any] | None, *, pr: int | None, branch: str | None
+) -> str | None:
+    if lane:
+        raw = str(lane.get("work_id") or "").strip()
+        if raw:
+            return raw
+        raw_pr = lane.get("pr_number")
+        if raw_pr is not None:
+            try:
+                return f"pr:{int(raw_pr)}"
+            except (TypeError, ValueError):
+                pass
+    if pr is not None:
+        return f"pr:{pr}"
+    if branch:
+        return f"branch:{branch}"
+    return None
+
+
+def _branch_write_lease_preflight_lines(
+    lane: dict[str, Any] | None, *, pr: int | None, branch: str | None
+) -> list[str]:
+    if not lane or str(lane.get("status") or "") not in ACTIVE_STATUSES:
+        return []
+    lease_branch = str(lane.get("branch") or branch or "").strip()
+    owner_session = str(lane.get("owner_session") or "").strip()
+    work_id = _prompt_work_id(lane, pr=pr, branch=lease_branch or branch)
+    if not lease_branch or not work_id:
+        return []
+    session_arg = f" --session-id {shlex.quote(owner_session)}" if owner_session else ""
+    command = (
+        "python3 scripts/check_work_lease.py "
+        f"{shlex.quote(lease_branch)} --verify-only --work-id {shlex.quote(work_id)} "
+        f"--strict{session_arg} --json"
+    )
+    return [
+        "",
+        "Before any branch push when ARAGORA_REQUIRE_BRANCH_WRITE_LEASE=1, verify the dev_coordination branch-write lease:",
+        command,
+    ]
+
+
 def build_prompt(
     *,
     registry_path: Path,
@@ -1488,6 +1790,7 @@ def build_prompt(
                 f"python3 -m aragora.cli.main review-queue merge-packet --pr {pr} --json || true",
             ]
         )
+    lines.extend(_branch_write_lease_preflight_lines(lane, pr=pr, branch=branch))
 
     lines.append("")
     if lane:
@@ -1612,6 +1915,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit a human-copyable exact-head prompt for one live merge-packet ready PR.",
     )
     parser.add_argument(
+        "--product-proof-loop-prompt",
+        action="store_true",
+        help=(
+            "Emit a product-proof / benchmark-truth loop prompt that consults the "
+            "backpressure signal before creating new PR work."
+        ),
+    )
+    parser.add_argument(
+        "--backpressure-signal-file",
+        type=Path,
+        default=None,
+        help=(
+            "Backpressure signal JSON for --product-proof-loop-prompt "
+            f"(default: {DEFAULT_BACKPRESSURE_SIGNAL_FILE})."
+        ),
+    )
+    parser.add_argument(
         "--merge-ready-limit",
         type=int,
         default=30,
@@ -1626,6 +1946,34 @@ def main(argv: Sequence[str] | None = None) -> int:
     prompt: str | None = None
     packet: dict[str, Any] | None = None
     guard_prompt: str | None = None
+    if args.product_proof_loop_prompt:
+        signal_file = args.backpressure_signal_file
+        if signal_file is not None and not signal_file.is_absolute():
+            signal_file = args.repo_root / signal_file
+        prompt = build_product_proof_loop_prompt(
+            repo_root=args.repo_root,
+            signal_file=signal_file,
+        )
+        prompt = _operator_choice_placeholder_guard_prompt(prompt, repo_root=args.repo_root)
+        if args.json:
+            _emit_stdout(
+                json.dumps(
+                    {
+                        "prompt": prompt,
+                        "backpressure_signal": _load_backpressure_signal(
+                            signal_file
+                            if signal_file is not None
+                            else args.repo_root / DEFAULT_BACKPRESSURE_SIGNAL_FILE
+                        ),
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+        else:
+            _emit_stdout(prompt)
+        return 0
     if args.merge_ready_prompt:
         merge_packet = build_merge_ready_packet(
             repo_root=args.repo_root,

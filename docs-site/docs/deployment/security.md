@@ -259,7 +259,7 @@ SecRule ARGS|ARGS_NAMES|REQUEST_COOKIES|REQUEST_COOKIES_NAMES|REQUEST_BODY|REQUE
     capture,\
     t:none,t:urlDecodeUni,\
     msg:'SQL Injection Attack',\
-    logdata:'Matched Data: %{TX.0} found within %\{MATCHED_VAR_NAME\}',\
+    logdata:'Matched Data: %{TX.0} found within %{MATCHED_VAR_NAME}',\
     tag:'attack-sqli'"
 
 # XSS
@@ -270,7 +270,7 @@ SecRule ARGS|ARGS_NAMES|REQUEST_COOKIES|REQUEST_COOKIES_NAMES|REQUEST_BODY|REQUE
     capture,\
     t:none,t:urlDecodeUni,t:htmlEntityDecode,t:jsDecode,\
     msg:'XSS Attack',\
-    logdata:'Matched Data: %{TX.0} found within %\{MATCHED_VAR_NAME\}',\
+    logdata:'Matched Data: %{TX.0} found within %{MATCHED_VAR_NAME}',\
     tag:'attack-xss'"
 
 # Path Traversal
@@ -428,9 +428,9 @@ metadata:
   namespace: aragora
 type: Opaque
 stringData:
-  aragora-jwt-secret: $\{ARAGORA_JWT_SECRET\}
-  stripe-secret-key: $\{STRIPE_SECRET_KEY\}
-  anthropic-api-key: $\{ANTHROPIC_API_KEY\}
+  aragora-jwt-secret: ${ARAGORA_JWT_SECRET}
+  stripe-secret-key: ${STRIPE_SECRET_KEY}
+  anthropic-api-key: ${ANTHROPIC_API_KEY}
 ```
 
 ### HashiCorp Vault

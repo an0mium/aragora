@@ -15,21 +15,28 @@ pip install aragora[dev]
 pip install aragora[all]
 ```
 
-## Feature-to-Extras Mapping
+## Feature-to-Install Mapping
 
-| Feature | Extras | Size Impact |
-|---------|--------|-------------|
-| CLI debates | (none) | ~50MB |
-| Development/Testing | `dev` | +100MB |
-| Monitoring (Prometheus/Sentry) | `monitoring` | +20MB |
-| Distributed tracing (OpenTelemetry) | `observability` | +30MB |
-| Redis caching | `redis` | +5MB |
-| Database (Supabase/PostgreSQL) | `persistence,postgres` | +40MB |
-| PDF/DOCX processing | `documents` | +30MB |
-| Text-to-speech (basic) | `broadcast` | +50MB |
-| Text-to-speech (premium) | `broadcast-premium` | +500MB |
-| Web research | `research` | +20MB |
-| ML/Embeddings | `ml` | +2GB |
+Aragora's `pyproject.toml` defines these extras: `test`, `dev`, `gateway`,
+`enterprise`, `blockchain`, `connectors`, `experimental`, and `all`. Features
+without a dedicated extra install their optional packages directly.
+
+| Feature | Install | Size Impact |
+|---------|---------|-------------|
+| CLI debates | (base) `pip install aragora` | ~50MB |
+| Development/Testing | `pip install aragora[dev]` | +100MB |
+| Async gateway (FastAPI/uvicorn) | `pip install aragora[gateway]` | +20MB |
+| Database/SSO (asyncpg, Supabase, SAML) | `pip install aragora[enterprise]` | +40MB |
+| Streaming connectors (Kafka/RabbitMQ) | `pip install aragora[connectors]` | +15MB |
+| Blockchain (web3) | `pip install aragora[blockchain]` | +30MB |
+| Monitoring (Prometheus/Sentry) | `pip install prometheus-client sentry-sdk` | +20MB |
+| Distributed tracing (OpenTelemetry) | `pip install opentelemetry-sdk opentelemetry-exporter-otlp` | +30MB |
+| Redis caching | `pip install redis` | +5MB |
+| PDF/DOCX processing | `pip install pypdf python-docx` | +30MB |
+| Text-to-speech (basic) | `pip install edge-tts pydub` | +50MB |
+| Text-to-speech (premium) | `pip install elevenlabs` | +500MB |
+| Web research | `pip install duckduckgo-search beautifulsoup4` | +20MB |
+| ML/Embeddings | `pip install sentence-transformers scikit-learn` | +2GB |
 
 ## Installation Profiles
 
@@ -42,38 +49,38 @@ pip install aragora
 
 **Includes**: Core debate engine, SQLite storage, all agent providers
 
-### Profile 2: API Server
-For running the REST/WebSocket server:
+### Profile 2: FastAPI Gateway
+For the FastAPI/uvicorn async gateway:
 
 ```bash
-pip install aragora[monitoring,observability]
+pip install aragora[gateway]
 ```
 
-**Includes**: Core + Prometheus metrics + OpenTelemetry tracing
+**Includes**: Core + FastAPI + uvicorn
 
 ### Profile 3: Production Deployment
 For full production environment:
 
 ```bash
-pip install aragora[monitoring,observability,persistence,postgres,redis]
+pip install aragora[all]
 ```
 
-**Includes**: Core + metrics + tracing + Supabase + PostgreSQL + Redis caching
+**Includes**: Core + all extras (gateway, enterprise, connectors, blockchain, experimental). For metrics and Redis caching, also `pip install prometheus-client redis`.
 
 ### Profile 4: Development
 For contributing to Aragora:
 
 ```bash
-pip install aragora[dev,monitoring]
+pip install aragora[dev]
 ```
 
-**Includes**: Core + pytest + mypy + ruff + bandit + metrics
+**Includes**: Core + pytest + mypy + ruff + bandit
 
 ### Profile 5: Research/Evidence
 For debates with web research and evidence collection:
 
 ```bash
-pip install aragora[research,documents]
+pip install aragora duckduckgo-search beautifulsoup4 pypdf python-docx
 ```
 
 **Includes**: Core + DuckDuckGo search + PDF/DOCX parsing
@@ -83,19 +90,19 @@ For generating debate audio/video:
 
 ```bash
 # Basic TTS (free, edge-tts)
-pip install aragora[broadcast]
+pip install edge-tts pydub
 
-# Premium TTS (ElevenLabs, AWS Polly, Coqui XTTS)
-pip install aragora[broadcast-premium]
+# Premium TTS: ElevenLabs / AWS Polly / Coqui XTTS
+pip install elevenlabs   # or: boto3 (Polly), TTS (Coqui XTTS)
 ```
 
-**Note**: `broadcast-premium` requires ~500MB and includes PyTorch for XTTS
+**Note**: Coqui XTTS (`pip install TTS`) requires ~500MB and includes PyTorch
 
 ### Profile 7: ML/Semantic Search
 For semantic similarity and embeddings:
 
 ```bash
-pip install aragora[ml]
+pip install sentence-transformers scikit-learn numpy scipy
 ```
 
 **Warning**: This adds ~2GB for sentence-transformers and dependencies
@@ -117,6 +124,8 @@ pip install aragora[ml]
 | urllib3>=2.6.3 | HTTP utilities | CVE fix |
 
 ### Optional Dependencies
+
+The groups below describe related packages. Only `dev`, `test`, `gateway`, `enterprise`, `blockchain`, `connectors`, `experimental`, and `all` are installable as `pip install aragora[<extra>]`; the others are installed as the direct packages listed.
 
 #### `dev` - Development Tools
 ```
@@ -211,22 +220,22 @@ Dependencies may require these environment variables:
 
 ### Import Errors
 
-If you see `ModuleNotFoundError`, install the required extras:
+If you see `ModuleNotFoundError`, install the missing package:
 
 ```bash
 # Missing prometheus_client
-pip install aragora[monitoring]
+pip install prometheus-client
 
 # Missing sentence_transformers
-pip install aragora[ml]
+pip install sentence-transformers
 
 # Missing pypdf
-pip install aragora[documents]
+pip install pypdf
 ```
 
 ### Large Downloads
 
-The `ml` and `broadcast-premium` extras download large models:
+ML models and premium TTS packages are large downloads:
 
 - `ml`: ~2GB (sentence-transformers + torch)
 - `broadcast-xtts`: ~500MB (Coqui TTS + torch)
@@ -234,7 +243,7 @@ The `ml` and `broadcast-premium` extras download large models:
 Use `--no-cache-dir` to avoid caching:
 
 ```bash
-pip install --no-cache-dir aragora[ml]
+pip install --no-cache-dir sentence-transformers scikit-learn
 ```
 
 ### Conflicts
@@ -247,5 +256,5 @@ python -m venv .venv
 source .venv/bin/activate
 
 # Install with constraints
-pip install aragora[your-extras]
+pip install aragora[all]
 ```

@@ -24,7 +24,7 @@ import time
 import uuid
 from unittest.mock import Mock, MagicMock, patch
 
-from aragora.server.handlers.webhooks import (
+from aragora.server.handlers.webhook_management import (
     WebhookHandler,
     WebhookConfig,
     WebhookStore,
@@ -68,20 +68,15 @@ def _bypass_webhook_rbac(monkeypatch):
 @pytest.fixture(autouse=True)
 def _reset_rate_limiters():
     """Reset webhook rate limiters before each test to prevent cross-test exhaustion."""
-    import aragora.server.handlers.webhooks as webhooks_pkg
+    from aragora.server.handlers import webhook_management
 
-    webhooks_mod = getattr(webhooks_pkg, "_webhooks_module", None)
-    if webhooks_mod is not None:
-        for attr in ("_register_limiter", "_test_limiter", "_list_limiter"):
-            lim = getattr(webhooks_mod, attr, None)
-            if lim is not None:
-                lim.clear()
+    for attr in ("_register_limiter", "_test_limiter", "_list_limiter"):
+        limiter = getattr(webhook_management, attr)
+        limiter.clear()
     yield
-    if webhooks_mod is not None:
-        for attr in ("_register_limiter", "_test_limiter", "_list_limiter"):
-            lim = getattr(webhooks_mod, attr, None)
-            if lim is not None:
-                lim.clear()
+    for attr in ("_register_limiter", "_test_limiter", "_list_limiter"):
+        limiter = getattr(webhook_management, attr)
+        limiter.clear()
 
 
 @pytest.fixture
@@ -528,7 +523,7 @@ class TestRegisterWebhook:
             status = result.status_code
 
             assert status == 400
-            assert "URL is required" in response_body
+            assert "URL must be a non-empty string" in response_body
 
     def test_register_webhook_invalid_url(self, webhook_handler, mock_http_handler, mock_user):
         """Test registration with invalid URL format."""
@@ -679,8 +674,10 @@ class TestGetWebhook:
             response_body = get_response_body(result)
             status = result.status_code
 
-            assert status == 403
-            assert "access denied" in response_body.lower()
+            # Denied access is reported as 404 to avoid revealing that the
+            # webhook exists to non-owners (anti-enumeration).
+            assert status == 404
+            assert "not found" in response_body.lower()
 
 
 # ============================================================================
@@ -717,7 +714,8 @@ class TestDeleteWebhook:
             result = webhook_handler._handle_delete_webhook(sample_webhook.id, mock_http_handler)
             status = result.status_code
 
-            assert status == 403
+            # 404, not 403 — non-owners must not learn the webhook exists
+            assert status == 404
 
 
 # ============================================================================
@@ -797,7 +795,8 @@ class TestUpdateWebhook:
             )
             status = result.status_code
 
-            assert status == 403
+            # 404, not 403 — non-owners must not learn the webhook exists
+            assert status == 404
 
 
 # ============================================================================
@@ -853,7 +852,8 @@ class TestTestWebhook:
             result = webhook_handler._handle_test_webhook(sample_webhook.id, mock_http_handler)
             status = result.status_code
 
-            assert status == 403
+            # 404, not 403 — non-owners must not learn the webhook exists
+            assert status == 404
 
 
 # ============================================================================
@@ -920,11 +920,11 @@ class TestGlobalWebhookStore:
     @pytest.fixture(autouse=True)
     def _reset_webhook_store_singleton(self):
         """Reset webhook store singleton before/after each test."""
-        import aragora.server.handlers.webhooks as webhooks_module
+        from aragora.storage.webhook_config_store import reset_webhook_config_store
 
-        webhooks_module._webhook_store = None
+        reset_webhook_config_store()
         yield
-        webhooks_module._webhook_store = None
+        reset_webhook_config_store()
 
     def test_get_webhook_store_singleton(self):
         """Test that get_webhook_store returns the same instance."""

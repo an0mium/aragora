@@ -8,10 +8,18 @@ can be imported from a single location.
 
 import argparse
 import os
+from typing import TYPE_CHECKING
 
-import httpx
+from aragora._lazy_imports import lazy_module
 
-from aragora.security.safe_http import safe_get
+# Optional runtime dep: imported lazily so the parser can register this
+# command on a base install that lacks httpx (httpx — and the safe_http
+# wrapper that imports it — are only needed when a command actually issues
+# an HTTP request to a running server).
+if TYPE_CHECKING:  # pragma: no cover - import only for type checkers
+    import httpx
+else:
+    httpx = lazy_module("httpx")
 
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
@@ -26,6 +34,8 @@ def cmd_agents(args: argparse.Namespace) -> None:
 
 def cmd_control_plane(args: argparse.Namespace) -> None:
     """Handle 'control-plane' command - show control plane status and management."""
+    from aragora.security.safe_http import safe_get
+
     server_url = getattr(args, "server", DEFAULT_API_URL)
     subcommand = getattr(args, "subcommand", "status")
 

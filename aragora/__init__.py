@@ -13,7 +13,13 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-__version__ = "2.8.0"
+# Re-export the package version from the canonical single source of truth
+# (``aragora/__version__.py``), which CI keeps aligned with ``pyproject.toml``
+# via ``scripts/check_version_alignment.py``. Deriving it here instead of
+# hard-coding a literal prevents ``aragora.__version__`` from silently drifting
+# away from the declared/installed version. The version module is stdlib-only
+# and side-effect free, so importing it at package init is safe.
+from aragora.__version__ import __version__ as __version__
 
 _EXPORT_MAP = {
     "Agent": ("aragora.core", "Agent"),
@@ -24,7 +30,14 @@ _EXPORT_MAP = {
     "Message": ("aragora.core", "Message"),
     "Vote": ("aragora.core", "Vote"),
     "Arena": ("aragora.debate", "Arena"),
-    # Golden 5 simplified API surface
+    # Golden 5 simplified API surface.
+    #
+    # NOTE (#8780): ``debate``, ``review``, and ``workflow`` collide with same-named
+    # subpackages. Once a subpackage is imported, the import system rebinds
+    # the package attribute to the module object, bypassing this lazy map.
+    # The matching subpackage ``__init__`` modules therefore make those modules
+    # callable (delegating to ``aragora.golden``) so the Golden API callables work
+    # in every import order. Keep that guard in sync when editing these entries.
     "debate": ("aragora.golden", "debate"),
     "remember": ("aragora.golden", "remember"),
     "recall": ("aragora.golden", "recall"),

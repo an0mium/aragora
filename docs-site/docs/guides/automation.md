@@ -222,7 +222,7 @@ Context here... #ready
 ### Installation
 
 ```bash
-pip install aragora[langchain]
+pip install aragora langchain
 # or
 pip install aragora langchain-core
 ```
@@ -273,9 +273,9 @@ Stream debate events to your application:
 from aragora.integrations.langchain import AragoraCallbackHandler
 
 handler = AragoraCallbackHandler(
-    on_debate_start=lambda debate_id: print(f"Started: \{debate_id\}"),
-    on_round_complete=lambda round: print(f"Round \{round\} done"),
-    on_consensus=lambda result: print(f"Consensus: \{result\}")
+    on_debate_start=lambda debate_id: print(f"Started: {debate_id}"),
+    on_round_complete=lambda round: print(f"Round {round} done"),
+    on_consensus=lambda result: print(f"Consensus: {result}")
 )
 
 tool = AragoraTool(
@@ -359,7 +359,7 @@ def verify_webhook(payload: bytes, signature: str, secret: str) -> bool:
         payload,
         hashlib.sha256
     ).hexdigest()
-    return hmac.compare_digest(f"sha256=\{expected\}", signature)
+    return hmac.compare_digest(f"sha256={expected}", signature)
 ```
 
 ---

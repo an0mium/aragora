@@ -5,16 +5,32 @@ Tests domain detection via keywords and caching behavior.
 """
 
 import time
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-from anthropic.types import TextBlock
 
 from aragora.routing.domain_matcher import (
     DOMAIN_KEYWORDS,
     DomainDetector,
     _DomainCache,
 )
+
+try:
+    from anthropic.types import TextBlock
+except ModuleNotFoundError:
+
+    class TextBlock:
+        """Minimal stand-in for anthropic.types.TextBlock in smoke environments."""
+
+        def __init__(self, *, type: str, text: str) -> None:
+            self.type = type
+            self.text = text
+
+
+def text_block(text: str) -> SimpleNamespace:
+    """Return the minimal response shape consumed by DomainDetector."""
+    return SimpleNamespace(type="text", text=text)
 
 
 # =============================================================================
@@ -302,7 +318,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            TextBlock(type="text", text='{"domains": [{"name": "security", "confidence": 0.95}]}')
+            text_block('{"domains": [{"name": "security", "confidence": 0.95}]}')
         ]
         mock_client.messages.create.return_value = mock_response
 
@@ -318,9 +334,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            TextBlock(
-                type="text", text='```json\n{"domains": [{"name": "api", "confidence": 0.9}]}\n```'
-            )
+            text_block('```json\n{"domains": [{"name": "api", "confidence": 0.9}]}\n```')
         ]
         mock_client.messages.create.return_value = mock_response
 
@@ -337,6 +351,21 @@ class TestDomainDetectorLLM:
         mock_response.content = [
             MagicMock(text='{"domains": [{"name": "invalid_domain", "confidence": 0.9}]}')
         ]
+        mock_client.messages.create.return_value = mock_response
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test_key"}):
+            detector = DomainDetector(use_llm=True, client=mock_client, use_cache=False)
+            result = detector.detect("Fix SQL injection vulnerability authentication")
+
+        # Should fall back to keywords
+        domains = [d for d, _ in result]
+        assert "security" in domains
+
+    def test_llm_detection_empty_response_fallback(self):
+        """Test that empty LLM responses fall back to keywords."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = []
         mock_client.messages.create.return_value = mock_response
 
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test_key"}):
@@ -365,7 +394,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            TextBlock(type="text", text='{"domains": [{"name": "security", "confidence": 0.9}]}')
+            text_block('{"domains": [{"name": "security", "confidence": 0.9}]}')
         ]
         mock_client.messages.create.return_value = mock_response
 

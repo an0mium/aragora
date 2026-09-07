@@ -16,7 +16,7 @@ pip install aragora-debate[openai]       # GPT
 pip install aragora-debate[all]          # All providers
 ```
 
-For the full Aragora platform (server, CLI, knowledge management, 43 agent types):
+For the full Aragora platform (server, CLI, knowledge management, 46 agent types):
 
 ```bash
 pip install aragora[all]
@@ -237,7 +237,7 @@ debate = Debate(
 The standalone `aragora-debate` package gives you the debate engine. Install
 the full platform for:
 
-- **43 agent types** with ELO rankings and calibration tracking
+- **46 agent types** with ELO rankings and calibration tracking
 - **Knowledge Mound** -- semantic search, contradiction detection, cross-debate learning
 - **Gauntlet** -- adversarial stress-testing with attack/defend cycles
 - **Workflow engine** -- DAG-based automation with 50+ templates
@@ -249,7 +249,7 @@ the full platform for:
 pip install aragora[all]
 
 # Start the server (SQLite, no external dependencies)
-aragora serve --offline
+aragora serve --demo
 
 # Run a debate from the CLI
 aragora decide "Should we migrate to Kubernetes?" --rounds 3

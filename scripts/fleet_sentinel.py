@@ -28,7 +28,10 @@ from __future__ import annotations
 
 import argparse
 import glob as glob_module
+import hashlib
+import importlib.util
 import json
+import os
 import plistlib
 import re
 import shlex
@@ -41,6 +44,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 CheckResult = dict[str, Any]
+SCRIPTS_DIR = Path(__file__).resolve().parent
+DEFAULT_REPO_ROOT = SCRIPTS_DIR.parent
 
 ALL_CHECKS = (
     "publisher_status",
@@ -49,16 +54,238 @@ ALL_CHECKS = (
     "gh_auth",
     "checkout_invariant",
     "outbox_depth",
+    "outbox_drain_progress",
     "disk_free",
     "lane_liveness",
+    "stale_terminal_owner",
     "github_api_health",
     "trail_reconcile",
+)
+REPO_SLUG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
+STATE_PATH_ARGS = {
+    "--agent-bridge-lanes": "agent_bridge_lanes",
+    "--agent-heartbeats": "agent_heartbeats",
+    "--operator-steering-root": "operator_steering_root",
+    "--stale-terminal-owner-receipt-dir": "stale_terminal_owner_receipt_dir",
+}
+RESOLVER_REQUIRED_ATTRS = (
+    "ACTIVE_STATUSES",
+    "_annotate_terminal_safety",
+    "_active_pr_lane_findings",
+    "_base_merged_pr_audit_result",
+    "_merged_pr_audit_blocked_reason",
+    "_parse_timestamp",
+    "_read_rows_checked",
+    "_utc_now_iso",
 )
 
 # Branch namespaces owned by autonomous lanes; only these are eligible for the
 # ledger-less orphan-branch sweep (failure class A, 2026-06-10/11: coordinator
 # lanes died at setup leaving empty elves/run-* branches nobody noticed).
 ORPHAN_BRANCH_PATTERNS = ("elves/*", "aragora/boss*")
+LANE_TIMESTAMP_KEYS = (
+    "updated_at",
+    "last_heartbeat_at",
+    "last_seen_at",
+    "claimed_at",
+    "created_at",
+)
+LIVE_OWNER_BLOCKERS = frozenset({"fresh_heartbeat", "live_process"})
+_RESOLVER_MODULE: Any | None = None
+
+
+def _canonical_repo_root(path: Path) -> Path:
+    common_dir_proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if common_dir_proc.returncode == 0:
+        common_dir = common_dir_proc.stdout.strip()
+        if common_dir.endswith("/.git"):
+            return Path(common_dir).resolve().parent
+
+    root_proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if root_proc.returncode == 0 and root_proc.stdout.strip():
+        return Path(root_proc.stdout.strip()).resolve()
+    return path.resolve()
+
+
+def _git_common_state_root(path: Path) -> Path | None:
+    common_dir_proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if common_dir_proc.returncode != 0 or not common_dir_proc.stdout.strip():
+        return None
+    common_dir = Path(common_dir_proc.stdout.strip()).resolve()
+    if common_dir.name == ".git":
+        return common_dir.parent / ".aragora"
+    for parent in common_dir.parents:
+        if parent.name == ".git":
+            return parent.parent / ".aragora"
+    return None
+
+
+def _git_toplevel(path: Path) -> Path | None:
+    proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    return Path(proc.stdout.strip()).resolve()
+
+
+def _registered_worktree_roots(repo_root: Path) -> set[Path]:
+    roots: set[Path] = set()
+    toplevel = _git_toplevel(repo_root)
+    if toplevel is not None:
+        roots.add(toplevel)
+    proc = subprocess.run(
+        ["git", "-C", str(repo_root), "worktree", "list", "--porcelain"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return roots
+    for line in proc.stdout.splitlines():
+        if line.startswith("worktree "):
+            roots.add(Path(line.removeprefix("worktree ")).resolve())
+    return roots
+
+
+def _state_root_repo_candidate(state_root: Path) -> Path:
+    return state_root.parent if state_root.name == ".aragora" else state_root
+
+
+def _is_registered_worktree_state_root(state_root: Path, repo_root: Path) -> bool:
+    candidate = _state_root_repo_candidate(state_root)
+    candidate_root = _git_toplevel(candidate)
+    if candidate_root is None or candidate.resolve() != candidate_root:
+        return False
+    return candidate_root in _registered_worktree_roots(repo_root)
+
+
+def _trusted_automation_state_roots(repo_root: Path) -> set[Path]:
+    roots = {
+        (_canonical_repo_root(repo_root) / ".aragora").resolve(),
+        (DEFAULT_REPO_ROOT / ".aragora").resolve(),
+    }
+    common_state_root = _git_common_state_root(repo_root)
+    if common_state_root is not None:
+        roots.add(common_state_root.resolve())
+    return roots
+
+
+def _normalize_automation_state_root(path: str) -> Path:
+    root = Path(path).expanduser()
+    root = root if root.name == ".aragora" else root / ".aragora"
+    return root.resolve()
+
+
+def _automation_state_root(repo_root: Path) -> Path:
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    if configured:
+        root = _normalize_automation_state_root(configured)
+        trusted_roots = _trusted_automation_state_roots(repo_root)
+        if root not in trusted_roots and not _is_registered_worktree_state_root(root, repo_root):
+            allowed = ", ".join(str(item) for item in sorted(trusted_roots))
+            raise ValueError(
+                f"untrusted ARAGORA_AUTOMATION_STATE_ROOT {root}; expected one of: "
+                f"{allowed}, or a registered worktree's .aragora"
+            )
+        return root
+    return (_canonical_repo_root(repo_root) / ".aragora").resolve()
+
+
+def _automation_state_root_for_defaults(repo_root: Path) -> tuple[Path, str | None]:
+    try:
+        return _automation_state_root(repo_root), None
+    except ValueError as exc:
+        # Parser construction must not crash before explicit path overrides can
+        # be parsed. The stale_terminal_owner check fails closed if these
+        # fallback defaults are actually used.
+        return (_canonical_repo_root(repo_root) / ".aragora").resolve(), str(exc)
+
+
+def _explicit_state_path_args(argv: list[str]) -> set[str]:
+    explicit: set[str] = set()
+    for token in argv:
+        for flag, dest in STATE_PATH_ARGS.items():
+            if token == flag or token.startswith(f"{flag}="):
+                explicit.add(dest)
+    return explicit
+
+
+def _validate_repo_slug(repo_slug: str) -> str:
+    slug = repo_slug.strip()
+    if slug != repo_slug or not REPO_SLUG_RE.fullmatch(slug):
+        raise ValueError("repo_slug must be a single GitHub owner/repo slug")
+    owner, repo = slug.split("/", 1)
+    if owner in {".", ".."} or repo in {".", ".."} or owner.startswith("-") or repo.startswith("-"):
+        raise ValueError("repo_slug contains an unsafe owner or repository segment")
+    return slug
+
+
+def _validate_gh_bin(gh_bin: str) -> str:
+    value = str(gh_bin)
+    if value != value.strip() or any(char.isspace() for char in value) or "\0" in value:
+        raise ValueError("gh_bin must be one executable token")
+    if value == "gh":
+        return value
+    path = Path(value).expanduser()
+    if not path.is_absolute() and not any(sep in value for sep in ("/", os.sep)):
+        raise ValueError("gh_bin must be 'gh' or an executable path")
+    try:
+        resolved = path.resolve()
+    except OSError as exc:
+        raise ValueError(f"gh_bin path could not be resolved: {exc}") from exc
+    if not resolved.is_file() or not os.access(resolved, os.X_OK):
+        raise ValueError("gh_bin path must be an executable file")
+    return str(resolved)
+
+
+def _split_operator_command(command: str, *, option_name: str) -> list[str]:
+    try:
+        tokens = shlex.split(command)
+    except ValueError as exc:
+        raise ValueError(f"{option_name} is not a valid argv template: {exc}") from exc
+    if not tokens:
+        raise ValueError(f"{option_name} must not be empty")
+    executable = tokens[0]
+    if (
+        executable.startswith("-")
+        or "\0" in executable
+        or any(char.isspace() for char in executable)
+    ):
+        raise ValueError(f"{option_name} executable must be one safe argv token")
+    if any(sep in executable for sep in ("/", os.sep)):
+        path = Path(executable).expanduser()
+        try:
+            resolved = path.resolve()
+        except OSError as exc:
+            raise ValueError(f"{option_name} executable path could not be resolved: {exc}") from exc
+        if not resolved.is_file() or not os.access(resolved, os.X_OK):
+            raise ValueError(f"{option_name} executable path must be an executable file")
+        tokens[0] = str(resolved)
+    return tokens
 
 
 def parse_iso(value: str) -> datetime:
@@ -75,6 +302,15 @@ def _result(check: str, status: str, detail: str) -> CheckResult:
 
 def _age_hours(path: Path, now: datetime) -> float:
     return (now.timestamp() - path.stat().st_mtime) / 3600.0
+
+
+def _coerce_int(value: Any) -> int | None:
+    try:
+        if value is None or value == "":
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -205,8 +441,12 @@ def check_outbox(
     """Outbox depth and oldest-item age (archive/ excluded)."""
     name = "outbox_depth"
     if not outbox_dir.is_dir():
-        return _result(name, "ok", f"no outbox dir at {outbox_dir}")
+        result = _result(name, "ok", f"no outbox dir at {outbox_dir}")
+        result["depth"] = 0
+        result["fingerprint"] = _outbox_fingerprint([])
+        return result
     items = sorted(p for p in outbox_dir.glob("*.json") if p.is_file())
+    fingerprint = _outbox_fingerprint(items)
     problems: list[str] = []
     if len(items) > max_items:
         problems.append(f"{len(items)} items queued (max {max_items})")
@@ -215,11 +455,138 @@ def check_outbox(
         oldest_days = _age_hours(oldest, now) / 24.0
         if oldest_days > max_age_days:
             problems.append(
-                f"oldest item {oldest.name} is {oldest_days:.1f}d old (max {max_age_days}d)"
+                f"{len(items)} item(s) queued; oldest item {oldest.name} is "
+                f"{oldest_days:.1f}d old (max {max_age_days}d)"
             )
     if problems:
-        return _result(name, "breach", "; ".join(problems))
-    return _result(name, "ok", f"{len(items)} item(s) queued")
+        result = _result(name, "breach", "; ".join(problems))
+        result["depth"] = len(items)
+        result["fingerprint"] = fingerprint
+        return result
+    result = _result(name, "ok", f"{len(items)} item(s) queued")
+    result["depth"] = len(items)
+    result["fingerprint"] = fingerprint
+    return result
+
+
+def _outbox_fingerprint(items: list[Path]) -> str:
+    digest = hashlib.sha256()
+    for item in sorted(items, key=lambda p: p.name):
+        digest.update(item.name.encode("utf-8", "surrogateescape"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _extract_outbox_depth(check: dict[str, Any]) -> int | None:
+    depth = check.get("depth")
+    if isinstance(depth, int) and depth >= 0:
+        return depth
+    if isinstance(depth, float) and depth.is_integer() and depth >= 0:
+        return int(depth)
+    match = re.search(r"(\d+)\s+item", str(check.get("detail") or ""))
+    if match:
+        return int(match.group(1))
+    return None
+
+
+def _extract_outbox_fingerprint(check: dict[str, Any]) -> str | None:
+    fingerprint = check.get("fingerprint")
+    if isinstance(fingerprint, str) and fingerprint:
+        return fingerprint
+    return None
+
+
+def _extract_outbox_sample(checks: Any) -> tuple[int | None, str | None]:
+    for check in checks or []:
+        if isinstance(check, dict) and check.get("check") == "outbox_depth":
+            return _extract_outbox_depth(check), _extract_outbox_fingerprint(check)
+    return None, None
+
+
+def check_outbox_drain_progress(
+    ledger: Path,
+    outbox_dir: Path,
+    *,
+    stall_cycles: int,
+    min_floor: int,
+) -> CheckResult:
+    """Circuit-breaker: flag an outbox that stays congested without draining.
+
+    A drain/conductor loop that keeps running but never reduces the outbox is
+    making no net depth progress — the molasses failure mode in
+    ``docs/AGENT_OPERATING_CONTRACT.md`` §Conductor (observed June 2026: an outbox
+    stuck at its ceiling for ~9 days while the loop only re-messaged stale lanes).
+    When the live outbox is at/above ``min_floor`` and the last ``stall_cycles``
+    ledger entries show no net decrease from the first observed depth and the
+    live depth has not decreased from the previous cycle, breach so the loop
+    halts and escalates to the operator instead of mailing more dead letters.
+    """
+    name = "outbox_drain_progress"
+    if stall_cycles < 1:
+        return _result(name, "unknown", f"invalid stall cycle count {stall_cycles}; must be >= 1")
+    current_items = (
+        sorted(p for p in outbox_dir.glob("*.json") if p.is_file()) if outbox_dir.is_dir() else []
+    )
+    current = len(current_items)
+    current_fingerprint = _outbox_fingerprint(current_items)
+    if current < min_floor:
+        return _result(name, "ok", f"outbox depth {current} below floor {min_floor}")
+    if not ledger.exists():
+        return _result(name, "ok", f"no ledger history at {ledger}; cannot assess drain")
+    samples: list[tuple[int | None, str | None]] = []
+    for line in _read_tail_lines(ledger, stall_cycles + 4):
+        try:
+            entry = json.loads(line)
+        except (ValueError, TypeError):
+            samples.append((None, None))
+            continue
+        if not isinstance(entry, dict):
+            samples.append((None, None))
+            continue
+        samples.append(_extract_outbox_sample(entry.get("checks")))
+    if len(samples) < stall_cycles:
+        usable = sum(1 for depth, _fingerprint in samples if depth is not None)
+        return _result(
+            name, "ok", f"only {usable} prior cycle(s); need {stall_cycles} to assess drain"
+        )
+    recent_samples = samples[-stall_cycles:]
+    if any(depth is None for depth, _fingerprint in recent_samples):
+        usable = sum(1 for depth, _fingerprint in recent_samples if depth is not None)
+        return _result(
+            name,
+            "unknown",
+            f"only {usable} usable outbox_depth sample(s) in the last {stall_cycles} ledger cycle(s); cannot assess drain",
+        )
+    window = [depth for depth, _fingerprint in recent_samples if depth is not None]
+    series = [*window, current]
+    congested = all(depth >= min_floor for depth in series)
+    not_draining = current >= window[-1] and current >= window[0]
+    fingerprints = [fingerprint for _depth, fingerprint in recent_samples] + [current_fingerprint]
+    if congested and not_draining and any(not fingerprint for fingerprint in fingerprints):
+        return _result(
+            name,
+            "unknown",
+            "outbox depth did not improve, but recent ledger samples lack item fingerprints; cannot distinguish backlog stall from saturated throughput",
+        )
+    fingerprint_changed = len(set(fingerprints)) > 1
+    if congested and not_draining and fingerprint_changed:
+        return _result(
+            name,
+            "ok",
+            f"outbox depth stayed high but item fingerprint changed (recent depths {window}, now {current}); drain loop has throughput",
+        )
+    if congested and not_draining:
+        return _result(
+            name,
+            "breach",
+            f"outbox not draining: net depth {window[0]}->{current} stayed at/above {min_floor} "
+            f"across {stall_cycles} prior cycles plus live depth and item fingerprint did not change — "
+            "the drain loop is making no net backlog progress; HALT it and escalate to the operator, "
+            "do not keep re-messaging stale lanes (§Conductor dead-letter ban)",
+        )
+    return _result(
+        name, "ok", f"outbox draining or fluctuating (recent depths {window}, now {current})"
+    )
 
 
 def check_disk_free(
@@ -342,12 +709,18 @@ def check_lane_liveness(
         try:
             entry = json.loads(Path(ledger_file).read_text())
             lane = str(entry["lane"])
-            status = str(entry.get("status", ""))
-            launched_at = parse_iso(str(entry["launched_at"]))
+            raw_status = entry.get("status") or entry.get("state")
+            if raw_status is None:
+                raise KeyError("status")
+            status = str(raw_status)
+            if status != "in_progress":
+                continue
+            raw_launched_at = entry.get("launched_at") or entry.get("started_at")
+            if raw_launched_at is None:
+                raise KeyError("launched_at")
+            launched_at = parse_iso(str(raw_launched_at))
         except (OSError, json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
             unreadable.append(f"{ledger_file} ({exc.__class__.__name__})")
-            continue
-        if status != "in_progress":
             continue
         in_progress += 1
         age_hours = (now - launched_at).total_seconds() / 3600.0
@@ -393,6 +766,496 @@ def check_lane_liveness(
         f"{in_progress} in_progress lane(s) live; "
         f"{pattern_branches} lane-pattern branch(es) on origin, no orphans",
     )
+
+
+# ---------------------------------------------------------------------------
+# stale_terminal_owner (#8562 — stale lane owners blocking terminal PRs)
+# ---------------------------------------------------------------------------
+
+
+def _read_json_list(path: Path) -> tuple[list[dict[str, Any]], str | None]:
+    try:
+        payload = json.loads(path.read_text())
+    except FileNotFoundError:
+        return [], "missing"
+    except (OSError, json.JSONDecodeError) as exc:
+        return [], f"{exc.__class__.__name__}: {exc}"
+    if not isinstance(payload, list):
+        return [], "invalid_shape:not_list"
+    return [row for row in payload if isinstance(row, dict)], None
+
+
+def _latest_lane_timestamp(row: dict[str, Any]) -> datetime | None:
+    parsed: list[datetime] = []
+    for key in LANE_TIMESTAMP_KEYS:
+        raw = str(row.get(key) or "").strip()
+        if not raw:
+            continue
+        try:
+            parsed.append(parse_iso(raw))
+        except ValueError:
+            continue
+    return max(parsed) if parsed else None
+
+
+def _merge_commit_oid(payload: dict[str, Any]) -> str:
+    value = payload.get("mergeCommit") or payload.get("merge_commit")
+    if isinstance(value, dict):
+        return str(value.get("oid") or value.get("sha") or "")
+    return str(value or "")
+
+
+def _default_pr_state_fetcher(
+    pr: int,
+    *,
+    repo_slug: str,
+    gh_bin: str,
+    timeout_seconds: float = 30.0,
+) -> dict[str, Any]:
+    try:
+        safe_gh_bin = _validate_gh_bin(gh_bin)
+        safe_repo_slug = _validate_repo_slug(repo_slug)
+    except ValueError as exc:
+        return {
+            "available": False,
+            "number": pr,
+            "state": "UNKNOWN",
+            "error": f"invalid GitHub CLI configuration: {exc}",
+            "command": [],
+        }
+    cmd = [
+        safe_gh_bin,
+        "pr",
+        "view",
+        str(pr),
+        "--repo",
+        safe_repo_slug,
+        "--json",
+        "number,state,closed,closedAt,mergedAt,mergeCommit,headRefName,headRefOid,url",
+    ]
+    try:
+        proc = subprocess.run(  # noqa: S603
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {
+            "available": False,
+            "number": pr,
+            "state": "UNKNOWN",
+            "error": f"{exc.__class__.__name__}: {exc}",
+            "command": cmd,
+        }
+    if proc.returncode != 0:
+        return {
+            "available": False,
+            "number": pr,
+            "state": "UNKNOWN",
+            "error": proc.stderr.strip() or proc.stdout.strip(),
+            "command": cmd,
+        }
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        return {
+            "available": False,
+            "number": pr,
+            "state": "UNKNOWN",
+            "error": f"invalid gh json: {exc}",
+            "command": cmd,
+        }
+    return {
+        "available": True,
+        "number": _coerce_int(payload.get("number")) or pr,
+        "state": str(payload.get("state") or "").upper(),
+        "closed_at": payload.get("closedAt"),
+        "merged_at": payload.get("mergedAt"),
+        "merge_commit": _merge_commit_oid(payload),
+        "head_sha": str(payload.get("headRefOid") or ""),
+        "branch": str(payload.get("headRefName") or ""),
+        "url": str(payload.get("url") or ""),
+    }
+
+
+def _trusted_resolver_path() -> Path:
+    script_path = SCRIPTS_DIR / "resolve_lane_conflicts.py"
+    try:
+        resolved = script_path.resolve(strict=True)
+        trusted_scripts_dir = SCRIPTS_DIR.resolve(strict=True)
+    except OSError as exc:
+        raise RuntimeError(f"could not resolve trusted resolver path: {exc}") from exc
+    expected_scripts_dir = (DEFAULT_REPO_ROOT / "scripts").resolve()
+    if trusted_scripts_dir != expected_scripts_dir:
+        raise RuntimeError(
+            "fleet sentinel scripts directory does not match canonical repo scripts directory: "
+            f"{trusted_scripts_dir} != {expected_scripts_dir}"
+        )
+    if resolved.parent != trusted_scripts_dir or resolved.name != "resolve_lane_conflicts.py":
+        raise RuntimeError(f"untrusted resolver module path: {resolved}")
+    return resolved
+
+
+def _validate_resolver_module(module: Any, script_path: Path) -> None:
+    missing = [name for name in RESOLVER_REQUIRED_ATTRS if not hasattr(module, name)]
+    if missing:
+        raise RuntimeError(
+            f"resolver module at {script_path} is missing required attrs: {', '.join(missing)}"
+        )
+
+
+def _load_resolver_module() -> Any:
+    global _RESOLVER_MODULE
+    if _RESOLVER_MODULE is not None:
+        return _RESOLVER_MODULE
+    script_path = _trusted_resolver_path()
+    spec = importlib.util.spec_from_file_location(
+        "resolve_lane_conflicts_for_sentinel", script_path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"could not load resolver module at {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _validate_resolver_module(module, script_path)
+    _RESOLVER_MODULE = module
+    return module
+
+
+def _active_lane_statuses() -> set[str]:
+    return set(getattr(_load_resolver_module(), "ACTIVE_STATUSES"))
+
+
+def _default_terminal_owner_auditor(
+    *,
+    pr: int,
+    github_state: dict[str, Any],
+    registry_path: Path,
+    receipt_dir: Path,
+    gh_bin: str,
+    heartbeat_path: Path,
+    steering_inbox_root: Path,
+    heartbeat_fresh_seconds: int,
+) -> dict[str, Any]:
+    resolver = _load_resolver_module()
+    resolved_at = resolver._utc_now_iso()
+    now_ts = resolver._parse_timestamp(resolved_at)
+    github_state = dict(github_state)
+    if "mergeCommit" not in github_state and github_state.get("merge_commit"):
+        github_state["mergeCommit"] = github_state["merge_commit"]
+    rows, row_load_error = resolver._read_rows_checked(registry_path)
+    heartbeats, heartbeat_load_error = resolver._read_rows_checked(heartbeat_path)
+    findings: list[dict[str, Any]] = []
+    blocked_reason = ""
+    if row_load_error:
+        blocked_reason = f"lane_registry_unreadable:{row_load_error}"
+    elif github_state.get("available") is True and github_state.get("state") == "MERGED":
+        raw_findings = resolver._active_pr_lane_findings(rows, pr=pr)
+        if heartbeat_fresh_seconds < 0:
+            findings = []
+            for finding in raw_findings:
+                finding = dict(finding)
+                finding["terminal_safety_blockers"] = ["invalid_heartbeat_fresh_seconds"]
+                finding["terminal_safety_details"] = {
+                    "heartbeat_fresh_seconds": heartbeat_fresh_seconds
+                }
+                finding["apply_safe"] = False
+                findings.append(finding)
+        else:
+            findings = resolver._annotate_terminal_safety(
+                raw_findings,
+                heartbeats=heartbeats,
+                heartbeat_load_error=heartbeat_load_error,
+                steering_inbox_root=steering_inbox_root,
+                now_ts=now_ts,
+                heartbeat_fresh_seconds=heartbeat_fresh_seconds,
+            )
+    if not blocked_reason:
+        blocked_reason = resolver._merged_pr_audit_blocked_reason(
+            apply=False,
+            operator_authorized=False,
+            expected_merge_commit=None,
+            expected_closed_at=None,
+            expected_head_sha=None,
+            github_state=github_state,
+            findings=findings,
+        )
+    return resolver._base_merged_pr_audit_result(
+        registry_path=registry_path,
+        receipt_dir=receipt_dir,
+        pr=pr,
+        apply=False,
+        operator_authorized=False,
+        expected_merge_commit=None,
+        expected_closed_at=None,
+        expected_head_sha=None,
+        github_state=github_state,
+        findings=findings,
+        blocked_reason=blocked_reason,
+        heartbeat_path=heartbeat_path,
+        steering_inbox_root=steering_inbox_root,
+        heartbeat_fresh_seconds=heartbeat_fresh_seconds,
+    )
+
+
+def _reconciler_dry_run_command(
+    *,
+    pr: int,
+    registry_path: Path,
+    receipt_dir: Path,
+    heartbeat_path: Path,
+    steering_inbox_root: Path,
+    heartbeat_fresh_seconds: int,
+) -> str:
+    return (
+        "python3 scripts/resolve_lane_conflicts.py --merged-pr-lane-audit "
+        f"--pr {pr} "
+        f"--registry-path {shlex.quote(str(registry_path))} "
+        f"--receipt-dir {shlex.quote(str(receipt_dir))} "
+        f"--heartbeat-path {shlex.quote(str(heartbeat_path))} "
+        f"--steering-inbox-root {shlex.quote(str(steering_inbox_root))} "
+        f"--heartbeat-fresh-seconds {heartbeat_fresh_seconds} --json"
+    )
+
+
+def _reconciler_apply_command(
+    *,
+    pr: int,
+    merge_commit: str,
+    registry_path: Path,
+    receipt_dir: Path,
+    heartbeat_path: Path,
+    steering_inbox_root: Path,
+    heartbeat_fresh_seconds: int,
+) -> str:
+    return (
+        "python3 scripts/resolve_lane_conflicts.py --merged-pr-lane-audit "
+        f"--pr {pr} --expected-merge-commit {shlex.quote(merge_commit)} "
+        "--operator-authorized "
+        f"--registry-path {shlex.quote(str(registry_path))} "
+        f"--receipt-dir {shlex.quote(str(receipt_dir))} "
+        f"--heartbeat-path {shlex.quote(str(heartbeat_path))} "
+        f"--steering-inbox-root {shlex.quote(str(steering_inbox_root))} "
+        f"--heartbeat-fresh-seconds {heartbeat_fresh_seconds} --apply --json"
+    )
+
+
+def check_stale_terminal_owner(
+    registry_path: Path,
+    *,
+    receipt_dir: Path,
+    heartbeat_path: Path,
+    steering_inbox_root: Path,
+    min_age_hours: float,
+    now: datetime,
+    repo_slug: str,
+    gh_bin: str = "gh",
+    heartbeat_fresh_seconds: int = 15 * 60,
+    gh_timeout_seconds: float = 30.0,
+    pr_state_fetcher: Callable[..., dict[str, Any]] | None = None,
+    terminal_owner_auditor: Callable[..., dict[str, Any]] | None = None,
+) -> CheckResult:
+    """Report stale owner rows that still block merged/closed PRs.
+
+    This check is intentionally read-only and avoids resolver write locks.  It
+    detects and routes; the only mutation path it prints is the guarded
+    ``resolve_lane_conflicts.py`` apply command, and only for merged PRs where an
+    exact merge commit is available.
+    """
+    name = "stale_terminal_owner"
+    try:
+        repo_slug = _validate_repo_slug(repo_slug)
+        gh_bin = _validate_gh_bin(gh_bin)
+    except ValueError as exc:
+        return _result(name, "unknown", f"invalid GitHub CLI configuration: {exc}")
+
+    rows, load_error = _read_json_list(registry_path)
+    if load_error:
+        if load_error == "missing":
+            return _result(
+                name,
+                "ok",
+                f"lane registry missing: {registry_path} — agent-bridge state absent; check skipped",
+            )
+        return _result(name, "unknown", f"lane registry unreadable: {load_error}")
+
+    active_lane_statuses = _active_lane_statuses()
+    stale_rows: list[dict[str, Any]] = []
+    unknown_age_rows: list[dict[str, Any]] = []
+    for row in rows:
+        if str(row.get("status") or "") not in active_lane_statuses:
+            continue
+        pr = _coerce_int(row.get("pr_number"))
+        if pr is None:
+            continue
+        latest = _latest_lane_timestamp(row)
+        if latest is None:
+            unknown_age_rows.append(row)
+            continue
+        age_hours = (now - latest).total_seconds() / 3600.0
+        if age_hours >= min_age_hours:
+            stale = dict(row)
+            stale["_stale_age_hours"] = age_hours
+            stale_rows.append(stale)
+
+    unknown_age_detail = ""
+    if unknown_age_rows:
+        sample = ", ".join(
+            str(row.get("lane_id") or row.get("owner_session") or row.get("pr_number"))
+            for row in unknown_age_rows[:5]
+        )
+        unknown_age_detail = (
+            f"{len(unknown_age_rows)} active PR owner row(s) have no comparable timestamp: {sample}"
+        )
+    if not stale_rows:
+        if unknown_age_detail:
+            return _result(name, "unknown", unknown_age_detail)
+        return _result(name, "ok", "no stale active PR owner rows over threshold")
+
+    if pr_state_fetcher is None:
+
+        def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+            return _default_pr_state_fetcher(
+                pr,
+                repo_slug=repo_slug,
+                gh_bin=gh_bin,
+                timeout_seconds=gh_timeout_seconds,
+            )
+
+    else:
+        fetch_state = pr_state_fetcher
+    audit_terminal = terminal_owner_auditor or _default_terminal_owner_auditor
+    by_pr: dict[int, list[dict[str, Any]]] = {}
+    for row in stale_rows:
+        pr = _coerce_int(row.get("pr_number"))
+        if pr is not None:
+            by_pr.setdefault(pr, []).append(row)
+
+    candidates: list[dict[str, Any]] = []
+    live_suppressed: list[dict[str, Any]] = []
+    unknowns: list[str] = [unknown_age_detail] if unknown_age_detail else []
+    for pr, pr_rows in sorted(by_pr.items()):
+        state = fetch_state(pr, repo_slug=repo_slug, gh_bin=gh_bin)
+        if state.get("available") is not True:
+            unknowns.append(f"PR #{pr}: {state.get('error') or 'state unavailable'}")
+            continue
+        terminal_state = str(state.get("state") or "").upper()
+        if terminal_state not in {"MERGED", "CLOSED"}:
+            continue
+
+        audit: dict[str, Any] = {}
+        findings_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+        if terminal_state == "MERGED":
+            audit = audit_terminal(
+                pr=pr,
+                github_state=state,
+                registry_path=registry_path,
+                receipt_dir=receipt_dir,
+                gh_bin=gh_bin,
+                heartbeat_path=heartbeat_path,
+                steering_inbox_root=steering_inbox_root,
+                heartbeat_fresh_seconds=heartbeat_fresh_seconds,
+            )
+            if audit.get("github_state", {}).get("available") is not True:
+                unknowns.append(
+                    f"PR #{pr}: reconciler audit unavailable: "
+                    f"{audit.get('github_state', {}).get('error') or audit.get('blocked_reason')}"
+                )
+                continue
+            findings_by_key = {
+                (
+                    str(finding.get("lane_id") or ""),
+                    str(finding.get("owner_session") or ""),
+                ): finding
+                for finding in audit.get("findings", [])
+                if isinstance(finding, dict)
+            }
+
+        for row in pr_rows:
+            key = (str(row.get("lane_id") or ""), str(row.get("owner_session") or ""))
+            finding = findings_by_key.get(key)
+            if terminal_state == "MERGED" and finding is None:
+                blockers = ["missing_reconciler_finding"]
+                details = {
+                    "reason": "read-only resolver audit did not return a matching active owner row"
+                }
+            else:
+                finding = finding or {}
+                blockers = list(finding.get("terminal_safety_blockers") or [])
+                details = dict(finding.get("terminal_safety_details") or {})
+            if terminal_state == "CLOSED":
+                blockers = ["closed_pr_manual_review"]
+                details = {
+                    "reason": "closed-unmerged PRs are terminal but have no merge-commit guard"
+                }
+            candidate = {
+                "lane_id": row.get("lane_id"),
+                "pr_number": pr,
+                "branch": row.get("branch") or state.get("branch"),
+                "owner_session": row.get("owner_session"),
+                "age_hours": round(float(row["_stale_age_hours"]), 2),
+                "terminal_state": terminal_state,
+                "terminal_url": state.get("url"),
+                "merge_commit": state.get("merge_commit") or "",
+                "terminal_safety_blockers": blockers,
+                "terminal_safety_details": details,
+                "reconciler_dry_run_command": _reconciler_dry_run_command(
+                    pr=pr,
+                    registry_path=registry_path,
+                    receipt_dir=receipt_dir,
+                    heartbeat_path=heartbeat_path,
+                    steering_inbox_root=steering_inbox_root,
+                    heartbeat_fresh_seconds=heartbeat_fresh_seconds,
+                ),
+                "reconciler_apply_command": "",
+            }
+            merge_commit = str(state.get("merge_commit") or "")
+            if terminal_state == "MERGED" and not blockers and merge_commit:
+                candidate["reconciler_apply_command"] = _reconciler_apply_command(
+                    pr=pr,
+                    merge_commit=merge_commit,
+                    registry_path=registry_path,
+                    receipt_dir=receipt_dir,
+                    heartbeat_path=heartbeat_path,
+                    steering_inbox_root=steering_inbox_root,
+                    heartbeat_fresh_seconds=heartbeat_fresh_seconds,
+                )
+            if LIVE_OWNER_BLOCKERS.intersection(blockers):
+                live_suppressed.append(candidate)
+            else:
+                candidates.append(candidate)
+
+    if unknowns:
+        return {
+            **_result(name, "unknown", "terminal PR state unknown: " + "; ".join(unknowns)),
+            "candidates": candidates,
+            "live_suppressed": live_suppressed,
+        }
+    if candidates:
+        detail = "; ".join(
+            f"lane {item.get('lane_id')} PR #{item['pr_number']} "
+            f"{item['terminal_state']} owner={item.get('owner_session')} "
+            f"age={item['age_hours']:.1f}h"
+            for item in candidates[:5]
+        )
+        return {
+            **_result(name, "breach", detail),
+            "candidates": candidates,
+            "live_suppressed": live_suppressed,
+        }
+    if live_suppressed:
+        return {
+            **_result(
+                name,
+                "ok",
+                f"{len(live_suppressed)} terminal PR owner row(s) have live-owner signal; "
+                "no stale terminal owner rows",
+            ),
+            "candidates": [],
+            "live_suppressed": live_suppressed,
+        }
+    return _result(name, "ok", "no stale terminal owner rows for merged/closed PRs")
 
 
 # ---------------------------------------------------------------------------
@@ -884,7 +1747,8 @@ def _github_witness_events(
     operator phase T0) replaces this as the witness root once enabled; this
     fetcher then becomes the liveness cross-check.
     """
-    raw = json.loads(capture(["gh", "api", f"repos/{repo_slug}/events?per_page=100"]))
+    safe_repo_slug = _validate_repo_slug(repo_slug)
+    raw = json.loads(capture(["gh", "api", f"repos/{safe_repo_slug}/events?per_page=100"]))
     events: list[dict[str, Any]] = []
     for item in raw:
         etype = item.get("type", "")
@@ -959,20 +1823,21 @@ def breach_summary(checks: list[CheckResult]) -> str:
 
 
 def notify(notify_cmd: str, summary: str, *, runner: Callable[[list[str]], int]) -> None:
-    tokens = shlex.split(notify_cmd)
-    if any("{summary}" in t for t in tokens):
-        # A bare "{summary}" token becomes its own argv element — safe to pass
-        # the text through verbatim.  A placeholder embedded in a larger token
-        # lands inside another language's string literal (e.g. the installer's
-        # default AppleScript "display notification" command), so neutralize
-        # quote/backslash injection before substituting.
-        embedded_safe = summary.replace("\\", "/").replace('"', "'")
-        tokens = [
-            summary if t == "{summary}" else t.replace("{summary}", embedded_safe) for t in tokens
-        ]
-    else:
-        tokens.append(summary)
     try:
+        tokens = _split_operator_command(notify_cmd, option_name="--notify-cmd")
+        if any("{summary}" in t for t in tokens):
+            # A bare "{summary}" token becomes its own argv element — safe to pass
+            # the text through verbatim.  A placeholder embedded in a larger token
+            # lands inside another language's string literal (e.g. the installer's
+            # default AppleScript "display notification" command), so neutralize
+            # quote/backslash injection before substituting.
+            embedded_safe = summary.replace("\\", "/").replace('"', "'")
+            tokens = [
+                summary if t == "{summary}" else t.replace("{summary}", embedded_safe)
+                for t in tokens
+            ]
+        else:
+            tokens.append(summary)
         runner(tokens)
     except Exception as exc:  # noqa: BLE001 - notification failure must not mask the report
         print(f"fleet-sentinel: notify-cmd failed: {exc}", file=sys.stderr)
@@ -1010,7 +1875,10 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                 results.append(check_launchd_plists(Path(args.launch_agents_dir)))
             elif name == "gh_auth":
                 results.append(
-                    check_gh_auth(runner=_default_command_runner, cmd=shlex.split(args.gh_auth_cmd))
+                    check_gh_auth(
+                        runner=_default_command_runner,
+                        cmd=_split_operator_command(args.gh_auth_cmd, option_name="--gh-auth-cmd"),
+                    )
                 )
             elif name == "checkout_invariant":
                 results.append(
@@ -1025,6 +1893,15 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         max_items=args.outbox_max,
                         max_age_days=args.outbox_max_age_days,
                         now=now,
+                    )
+                )
+            elif name == "outbox_drain_progress":
+                results.append(
+                    check_outbox_drain_progress(
+                        Path(args.ledger),
+                        Path(args.outbox_dir),
+                        stall_cycles=args.outbox_drain_stall_cycles,
+                        min_floor=args.outbox_max,
                     )
                 )
             elif name == "disk_free":
@@ -1044,6 +1921,56 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         commit_dater=_default_commit_dater(repo),
                     )
                 )
+            elif name == "stale_terminal_owner":
+                default_paths = getattr(args, "_automation_state_root_default_paths", {})
+                explicit_paths = set(getattr(args, "_explicit_state_path_args", set()))
+                fallback_path_values = {
+                    "agent_bridge_lanes": str(Path(args.agent_bridge_lanes)),
+                    "agent_heartbeats": str(Path(args.agent_heartbeats)),
+                    "operator_steering_root": str(Path(args.operator_steering_root)),
+                    "stale_terminal_owner_receipt_dir": str(
+                        Path(args.stale_terminal_owner_receipt_dir)
+                    ),
+                }
+                if not hasattr(args, "_explicit_state_path_args"):
+                    explicit_paths = {
+                        name
+                        for name, value in fallback_path_values.items()
+                        if value != default_paths.get(name)
+                    }
+                unsafe_fallback_paths = [
+                    name
+                    for name, value in fallback_path_values.items()
+                    if name not in explicit_paths and value == default_paths.get(name)
+                ]
+                using_unsafe_fallback_defaults = bool(
+                    getattr(args, "_automation_state_root_error", "") and unsafe_fallback_paths
+                )
+                if using_unsafe_fallback_defaults:
+                    results.append(
+                        _result(
+                            "stale_terminal_owner",
+                            "unknown",
+                            "invalid automation state root: "
+                            f"{args._automation_state_root_error}; provide explicit state paths "
+                            f"for: {', '.join(unsafe_fallback_paths)}",
+                        )
+                    )
+                else:
+                    results.append(
+                        check_stale_terminal_owner(
+                            Path(args.agent_bridge_lanes),
+                            receipt_dir=Path(args.stale_terminal_owner_receipt_dir),
+                            heartbeat_path=Path(args.agent_heartbeats),
+                            steering_inbox_root=Path(args.operator_steering_root),
+                            min_age_hours=args.stale_terminal_owner_age_hours,
+                            now=now,
+                            repo_slug=args.github_repo,
+                            gh_bin=args.gh_bin,
+                            heartbeat_fresh_seconds=args.stale_terminal_owner_heartbeat_fresh_seconds,
+                            gh_timeout_seconds=args.stale_terminal_owner_gh_timeout_seconds,
+                        )
+                    )
             elif name == "github_api_health":
                 results.append(
                     check_github_api_health(
@@ -1051,7 +1978,9 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         persist_threshold=args.persist_threshold,
                         tail_lines=args.publisher_log_tail_lines,
                         probe_runner=_default_command_runner,
-                        probe_cmd=shlex.split(args.rate_limit_cmd),
+                        probe_cmd=_split_operator_command(
+                            args.rate_limit_cmd, option_name="--rate-limit-cmd"
+                        ),
                     )
                 )
             elif name == "trail_reconcile":
@@ -1088,7 +2017,22 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = DEFAULT_REPO_ROOT
+    automation_state_root, automation_state_root_error = _automation_state_root_for_defaults(
+        repo_root
+    )
+    automation_default_paths = {
+        "agent_bridge_lanes": str(automation_state_root / "agent-bridge" / "lanes.json"),
+        "agent_heartbeats": str(automation_state_root / "agent-bridge" / "heartbeats.json"),
+        "operator_steering_root": str(automation_state_root / "operator-steering"),
+        "stale_terminal_owner_receipt_dir": str(
+            automation_state_root / "agent-bridge" / "conflict-resolution-receipts"
+        ),
+    }
+    parser.set_defaults(
+        _automation_state_root_error=automation_state_root_error,
+        _automation_state_root_default_paths=automation_default_paths,
+    )
     parser.add_argument("--repo-root", default=str(repo_root))
     parser.add_argument(
         "--publisher-status",
@@ -1112,6 +2056,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--outbox-dir", default=str(repo_root / ".aragora" / "automation-outbox"))
     parser.add_argument("--outbox-max", type=int, default=50)
     parser.add_argument("--outbox-max-age-days", type=float, default=7.0)
+    parser.add_argument(
+        "--outbox-drain-stall-cycles",
+        type=int,
+        default=3,
+        help="breach if the outbox stays at/above --outbox-max without draining for this "
+        "many consecutive sentinel cycles (circuit-breaker; §Conductor)",
+    )
     parser.add_argument("--min-free-gib", type=float, default=25.0)
     parser.add_argument(
         "--lanes-glob",
@@ -1121,6 +2072,46 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--lane-max-age-hours", type=float, default=3.0)
     parser.add_argument("--orphan-branch-age-hours", type=float, default=24.0)
+    parser.add_argument(
+        "--agent-bridge-lanes",
+        default=automation_default_paths["agent_bridge_lanes"],
+        help="lane owner registry used by stale_terminal_owner",
+    )
+    parser.add_argument(
+        "--agent-heartbeats",
+        default=automation_default_paths["agent_heartbeats"],
+        help="heartbeat registry used by stale_terminal_owner safety checks",
+    )
+    parser.add_argument(
+        "--operator-steering-root",
+        default=automation_default_paths["operator_steering_root"],
+        help="operator-steering inbox root used by stale_terminal_owner safety checks",
+    )
+    parser.add_argument(
+        "--stale-terminal-owner-age-hours",
+        type=float,
+        default=24.0,
+        help="minimum owner-row age before stale_terminal_owner evaluates terminal PR state",
+    )
+    parser.add_argument(
+        "--stale-terminal-owner-receipt-dir",
+        default=automation_default_paths["stale_terminal_owner_receipt_dir"],
+        help="receipt directory to print in guarded resolve_lane_conflicts commands",
+    )
+    parser.add_argument(
+        "--stale-terminal-owner-heartbeat-fresh-seconds",
+        type=int,
+        default=15 * 60,
+        help="fresh-heartbeat TTL passed through to resolve_lane_conflicts",
+    )
+    parser.add_argument(
+        "--stale-terminal-owner-gh-timeout-seconds",
+        type=float,
+        default=30.0,
+        help="timeout for stale_terminal_owner GitHub CLI PR-state probes",
+    )
+    parser.add_argument("--github-repo", default="synaptent/aragora")
+    parser.add_argument("--gh-bin", default="gh")
     parser.add_argument(
         "--publisher-log",
         default=str(repo_root / ".aragora" / "overnight" / "codex-automation-publisher.log"),
@@ -1176,7 +2167,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    args = build_parser().parse_args(raw_argv)
+    args._explicit_state_path_args = _explicit_state_path_args(raw_argv)
     now = parse_iso(args.now) if args.now else datetime.now(timezone.utc)
     checks = run_checks(args, now)
     breaches = sum(1 for c in checks if c["status"] == "breach")

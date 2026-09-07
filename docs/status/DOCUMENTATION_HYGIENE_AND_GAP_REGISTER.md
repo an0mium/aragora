@@ -16,7 +16,6 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 ## Completed In This Pass
 
 - Fixed broken links in `docs/status/FEATURE_DISCOVERY.md` and `docs/status/STATUS.md`.
-- Verified `docs/status/NEXT_STEPS_CANONICAL.md` points at the archived six-week execution plan.
 - Reconciled `docs/EU_AI_ACT_COMPLIANCE.md` against `aragora/compliance/eu_ai_act.py`, including Article 9 artifact generation and current March 2026 timeline language.
 - Regenerated `docs/CAPABILITY_MATRIX.md` and `docs-site/docs/contributing/capability-matrix.md` from the YAML source of truth.
 - Added discoverability links for status, roadmap, gap, and hygiene docs from the main indexes.
@@ -53,7 +52,7 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 
 - Closed-loop backbone, inbox trust wedge, swarm supervision, provider routing phase 1, Comms Hub completion, and OpenClaw core-loop delivery are treated as shipped in `docs/status/STATUS.md`.
 - Canonical execution priorities are now linked directly to the GitHub backlog: truthfulness/backlog canonicalization is complete on `main` through `#809`, the first kernel bridge tranche `#810` is complete, and the active M1 kernel work is now `#811` and `#812` in `docs/status/NEXT_STEPS_CANONICAL.md` and `docs/status/ACTIVE_EXECUTION_ISSUES.md`.
-- The active six-week plan is wedge/PMF-focused: first receipt quickly, parity hard-close, reliability cleanup, surface simplification, and status consolidation in the archived six-week execution plan.
+- The active six-week plan is wedge/PMF-focused: closing the default product loop on `main`, making the proof surfaces truthful by default, finishing the bounded execution operator contract, running design-partner PMF loops on the real wedges, and expanding one truthful workbench slice before a PMF decision gate, per the live six-week execution plan (`docs/status/EXECUTION_NEXT_6_WEEKS_2026-03-05.md`).
 
 ### Near-Term Goals (Q2 2026)
 

@@ -8,7 +8,7 @@ Three deployment paths, from simplest to production-grade.
 pip install aragora
 
 # Offline mode — SQLite, no external services, no API keys needed
-aragora serve --offline
+aragora serve --demo
 
 # With API keys — full functionality
 export ANTHROPIC_API_KEY=your-key
@@ -29,7 +29,7 @@ Pre-built images are published to GitHub Container Registry on every push to `ma
 | Frontend | `docker pull ghcr.io/synaptent/aragora/frontend:latest` |
 | Operator | `docker pull ghcr.io/synaptent/aragora/operator:latest` |
 
-**Available tags:** `latest` (main branch HEAD), `2.8.0` (version from pyproject.toml), `v2.8.0` (git tag), `<major>.<minor>`, `<sha>`.
+**Available tags:** `latest` (main branch HEAD), `2.10.0` (version from pyproject.toml), `v2.10.0` (git tag), `<major>.<minor>`, `<sha>`.
 
 ## 2. Docker Compose (recommended for production)
 
@@ -40,6 +40,13 @@ docker compose up -d
 ```
 
 **Services started:** Backend (port 8080 + WS 8765), Redis, PostgreSQL (optional profile)
+
+**Docker deployment path:**
+
+- Zero-dependency local run: `docker compose -f docker-compose.simple.yml up` (SQLite, no Postgres or Redis).
+- Production hardening (TLS, secrets, resource limits): [PRODUCTION_DEPLOYMENT.md](deployment/PRODUCTION_DEPLOYMENT.md).
+- Persistent volumes and bind mounts: [CONTAINER_VOLUMES.md](deployment/CONTAINER_VOLUMES.md).
+- Database provisioning: [DATABASE_SETUP.md](guides/DATABASE_SETUP.md).
 
 **Environment variables:**
 
@@ -86,23 +93,20 @@ cp .env.template .env  # fill in API keys
 
 ### Build Variants
 
-The Dockerfile supports three installation levels:
+`deploy/Dockerfile` chooses dependencies via the `VARIANT` build arg, which
+drives `scripts/ci_install_project.sh`:
+
+| `VARIANT` | Installs |
+|-----------|----------|
+| `minimal` | base package only |
+| `postgres` | base + PostgreSQL/Redis drivers |
+| `full` (default) | base + persistence, Redis, monitoring, observability, PostgreSQL, RLM |
 
 ```dockerfile
-# Minimal (no Redis/Postgres drivers)
-ARG INSTALL_VARIANT=minimal
-pip install .
-
-# With PostgreSQL + Redis
-ARG INSTALL_VARIANT=postgres
-pip install ".[postgres,redis]"
-
-# Full (all optional dependencies)
-ARG INSTALL_VARIANT=full
-pip install ".[persistence,redis,monitoring,observability,postgres,rlm]"
+ARG VARIANT=full   # default; also: minimal, postgres
 ```
 
-Default in `deploy/Dockerfile` is full.
+The exact package groups per variant live in `scripts/ci_install_project.sh`.
 
 ## 3. Kubernetes
 
@@ -305,13 +309,13 @@ Pin to a specific version in `docker-compose.yml`:
 ```yaml
 services:
   aragora-backend:
-    image: ghcr.io/synaptent/aragora/backend:2.8.0  # Pin to known-good version
+    image: ghcr.io/synaptent/aragora/backend:2.10.0  # Pin to known-good version
 ```
 
 Or via environment variable:
 
 ```bash
-ARAGORA_BACKEND_IMAGE=ghcr.io/synaptent/aragora/backend:2.8.0 docker compose up -d
+ARAGORA_BACKEND_IMAGE=ghcr.io/synaptent/aragora/backend:2.10.0 docker compose up -d
 ```
 
 ### Pre-upgrade Checklist

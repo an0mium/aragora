@@ -9,7 +9,7 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 > freely; never break main / public API / release flow / CI" rule, and main-red
 > incident mode. That contract governs *how* agents execute against the repo. This
 > document describes *what* agents are registered as runtime debate participants
-> (the 43-agent registry).
+> (the 46-agent registry).
 
 ## Worktree Autopilot (High-Churn Sessions)
 
@@ -90,17 +90,19 @@ commit") from the v12/v13 lessons; soft-reset and re-commit instead.
 
 ## Agent Types
 
-Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 35 types as of 2026-06-06). Entries marked **opt-in** are registered but not allowlisted by default.
+Aragora currently registers 46 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 35 types as of 2026-06-06). Entries marked **opt-in** are registered but not allowlisted by default.
 
 ### CLI-Based Agents (allowlisted)
 
 | Agent Type | CLI Tool | Default Model | Notes |
 |------------|----------|---------------|-------|
-| `claude` | `claude` (claude-code) | claude-opus-4-8 | Opus 4.8, 1M context, 128K output |
+| `claude` | `claude` (claude-code) | claude-fable-5 | Fable 5, 1M context, 128K output (subscription-priced on this surface) |
 | `codex` | `codex` | gpt-4.1-codex | GPT-4.1 Codex, 1M context |
 | `openai` | `openai` | gpt-4.1 | GPT-4.1, 1M context |
 | `gemini-cli` | `gemini` | gemini-3.1-pro-preview | Gemini 3.1 Pro, 1M context |
 | `grok-cli` | `grok` | grok-4-latest | Grok 4, 256K context |
+| `grok-build` | `grok` (Grok Build CLI) | grok-build | Opt-in subscription CLI; resolves `~/.grok/bin/grok` or `ARAGORA_GROK_BUILD_BIN` |
+| `antigravity` | `agy` | gemini-3.5-flash | Opt-in subscription CLI; resolves `~/.antigravity/bin/agy` or `ARAGORA_ANTIGRAVITY_BIN` |
 | `qwen-cli` | `qwen` | qwen3-coder | |
 | `deepseek-cli` | `deepseek` | deepseek-v4-pro | Requires `DEEPSEEK_API_KEY` |
 | `kilocode` | `kilocode` | provider-specific | Defaults to `openrouter/google/gemini-3.1-pro-preview` via `provider_id` |
@@ -109,7 +111,7 @@ Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, l
 
 | Agent Type | Provider | Default Model | Env Var | Allowlist |
 |------------|----------|---------------|---------|-----------|
-| `anthropic-api` | Anthropic | claude-opus-4-8 | `ANTHROPIC_API_KEY` | allowlisted |
+| `anthropic-api` | Anthropic | claude-opus-5 | `ANTHROPIC_API_KEY` | allowlisted |
 | `openai-api` | OpenAI | gpt-4.1 | `OPENAI_API_KEY` | allowlisted |
 | `gemini` | Google | gemini-3.1-pro-preview | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | allowlisted |
 | `grok` | xAI | grok-4-latest | `XAI_API_KEY` or `GROK_API_KEY` | allowlisted |
@@ -136,8 +138,8 @@ All OpenRouter agents require `OPENROUTER_API_KEY`.
 | `llama4-maverick` | meta-llama/llama-4-maverick | Llama 4 Maverick |
 | `llama4-scout` | meta-llama/llama-4-scout | Llama 4 Scout |
 | `mistral` | mistralai/mistral-large-2411 | Mistral Large |
-| `qwen` | qwen/qwen3-max | Qwen3 Max |
-| `qwen-max` | qwen/qwen3-max | Qwen3 Max |
+| `qwen` | qwen/qwen3.8-max | Qwen 3.8 Max |
+| `qwen-max` | qwen/qwen3.8-max | Qwen 3.8 Max |
 | `qwen-3.5` | qwen/qwen3.5-plus-02-15 | Qwen 3.5 Plus |
 | `yi` | 01-ai/yi-large | Yi Large |
 | `kimi` | moonshotai/kimi-k2-0905 | Kimi K2 |
@@ -145,6 +147,7 @@ All OpenRouter agents require `OPENROUTER_API_KEY`.
 | `sonar` | perplexity/sonar-reasoning | Sonar (reasoning + web search) |
 | `command-r` | cohere/command-r-plus | Command R+ (RAG-optimized) |
 | `jamba` | ai21/jamba-1.6-large | Jamba (SSM-Transformer hybrid) |
+| `fusion` | openrouter/fusion | OpenRouter Fusion multi-model council+judge endpoint (opt-in, not a quorum family) |
 | `openrouter` | deepseek/deepseek-v4-pro | Generic OpenRouter default |
 
 ### External Framework Proxies
@@ -203,7 +206,7 @@ Each agent has a role that determines its behavior in debates:
 
 ## Core Agent Interface
 
-All agents implement the abstract `Agent` class from `aragora/core.py`:
+All agents implement the abstract `Agent` class from `aragora/core/`:
 
 ```python
 class Agent(ABC):
@@ -351,7 +354,7 @@ analysis = await integration.full_post_debate_analysis(
 
 | File | Purpose |
 |------|---------|
-| `aragora/core.py` | Core abstractions (Agent, Message, Critique, Vote, DebateResult) |
+| `aragora/core/` | Core abstractions (Agent, Message, Critique, Vote, DebateResult) |
 | `aragora/agents/base.py` | Agent factory and type definitions |
 | `aragora/agents/cli_agents.py` | CLI-based agent implementations |
 | `aragora/agents/api_agents.py` | API-based agent implementations |

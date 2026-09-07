@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 if TYPE_CHECKING:
+    import asyncio
+
     from aragora.core import DebateResult, Environment
     from aragora.debate.knowledge_mound_ops import KnowledgeMoundOperations
     from aragora.knowledge.mound import KnowledgeMound
@@ -304,7 +306,7 @@ class ArenaKnowledgeManager:
         env: Environment,
         agents: list,
         protocol: Any,
-    ) -> None:
+    ) -> "asyncio.Task[Any] | None":
         """Initialize Knowledge Mound context for the debate.
 
         Emits DEBATE_START event to trigger cross-subsystem handlers:
@@ -319,17 +321,29 @@ class ArenaKnowledgeManager:
             env: Environment with task info
             agents: List of agents participating
             protocol: Debate protocol settings
+
+        Returns:
+            The in-flight KM culture-profile retrieval task scheduled by the
+            ``culture_to_debate`` reaction, if one was scheduled. Callers
+            should await it (with a bound) before calling ``get_culture_hints``
+            - the retrieval runs as a fire-and-forget task, so reading hints
+            immediately after this returns can otherwise race it. ``None``
+            if no retrieval was scheduled (offline mode, no Knowledge Mound,
+            or dispatch failed).
         """
         from aragora.utils.env import is_offline_mode
 
         if is_offline_mode():
-            return
+            return None
 
         try:
-            from aragora.events.cross_subscribers import get_cross_subscriber_manager
+            from aragora.debate.event_subscribers import (
+                bootstrap_debate_event_subscribers,
+            )
             from aragora.events.types import StreamEvent, StreamEventType
+            from aragora.knowledge.event_subscribers import get_knowledge_event_subscriber
 
-            manager = get_cross_subscriber_manager()
+            manager = bootstrap_debate_event_subscribers()
 
             # Emit DEBATE_START to trigger KM→subsystem flows
             event = StreamEvent(
@@ -347,14 +361,17 @@ class ArenaKnowledgeManager:
             )
             manager.dispatch(event)
             logger.debug("[arena] KM context initialized for debate %s", debate_id)
+            return get_knowledge_event_subscriber().get_pending_culture_task(debate_id)
 
         except ImportError:
             logger.debug("[arena] KM context initialization skipped (events not available)")
+            return None
         except (RuntimeError, TypeError, ValueError, AttributeError) as e:
             logger.warning("[arena] Failed to initialize KM context: %s", e)
+            return None
 
     def get_culture_hints(self, debate_id: str) -> dict[str, Any]:
-        """Retrieve culture hints from cross-subscriber manager.
+        """Retrieve culture hints from the knowledge event subscriber.
 
         Args:
             debate_id: Debate identifier
@@ -368,10 +385,13 @@ class ArenaKnowledgeManager:
             return {}
 
         try:
-            from aragora.events.cross_subscribers import get_cross_subscriber_manager
+            from aragora.debate.event_subscribers import (
+                bootstrap_debate_event_subscribers,
+            )
+            from aragora.knowledge.event_subscribers import get_knowledge_event_subscriber
 
-            manager = get_cross_subscriber_manager()
-            hints = manager.get_debate_culture_hints(debate_id)
+            bootstrap_debate_event_subscribers()
+            hints = get_knowledge_event_subscriber().get_debate_culture_hints(debate_id)
             if hints:
                 logger.debug(
                     "[arena] Retrieved %s culture hints for debate %s", len(hints), debate_id

@@ -41,6 +41,7 @@ from audit_codex_branch_backlog import (  # noqa: E402
     DEFAULT_RECEIPT_DIR,
     _automation_state_default_path,
     _automation_state_path,
+    _worktree_paths_for_branch,
     branch_patch_id,
     count_ahead,
     is_patch_equivalent,
@@ -134,7 +135,7 @@ def _classify_one(
     head_sha = branch_row["head_sha"]
     committed_at = _parse_iso(branch_row["committed_at"])
     ahead_count = int(branch_row.get("ahead_count") or 0)
-    wts = worktrees.get(branch, [])
+    wts = _worktree_paths_for_branch(worktrees, branch, head_sha)
 
     pr_number = open_pr_branches.get(branch)
     is_dirty = any(_is_dirty(wt) for wt in wts)

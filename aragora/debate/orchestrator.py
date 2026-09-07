@@ -16,6 +16,7 @@ import warnings  # noqa: F401 - used for deprecation warnings in __init__
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
 from aragora.debate.arena_config import (
     AgentConfig,
+    ArenaConfig,  # noqa: F401 - re-exported for historical import compatibility
     DebateConfig,
     MemoryConfig,
     ObservabilityConfig,
@@ -122,6 +123,12 @@ from aragora.debate.orchestrator_state import (
 from aragora.debate.orchestrator_setup import (  # noqa: F401
     compute_domain_from_task as _compute_domain_from_task,
 )
+
+# Import (for its self-registration side effect only): this is the
+# domain/library composition root that guarantees aragora.events.security_events
+# has a registered security debate runner before any Arena-backed process could
+# emit a security event, without aragora.events importing aragora.debate.
+from aragora.debate import security_response as _security_response  # noqa: F401
 
 # Structured logger for all debate events (JSON-formatted in production)
 logger = get_structured_logger(__name__)
@@ -982,6 +989,10 @@ class Arena(ArenaDelegatesMixin):
 
     def _init_phases(self) -> None:
         init_phases(self)
+        if not hasattr(self, "context_initializer"):
+            # Preserve the historical test seam where orchestrator.init_phases
+            # is patched to a no-op; real initialization always sets this.
+            return
         self.phase_executor = create_phase_executor(self)
         if hasattr(self, "_grounded_ops") and self._grounded_ops:
             self._grounded_ops.evidence_grounder = self.evidence_grounder
@@ -1129,7 +1140,8 @@ class Arena(ArenaDelegatesMixin):
         """Close only DatabaseManager instances created after this arena was built."""
         from aragora.storage.schema import DatabaseManager
 
-        created_paths = DatabaseManager.instance_paths() - self._db_manager_snapshot
+        snapshot = getattr(self, "_db_manager_snapshot", DatabaseManager.instance_paths())
+        created_paths = DatabaseManager.instance_paths() - snapshot
         if not created_paths:
             return
         DatabaseManager.close_instances(created_paths)
@@ -1167,6 +1179,11 @@ class Arena(ArenaDelegatesMixin):
 
     async def run(self, correlation_id: str = "") -> DebateResult:
         """Run the full debate and return results."""
+        if self.protocol.consensus == "crux_finder":
+            from aragora.debate.crux_mode import require_crux_finder_enabled
+
+            require_crux_finder_enabled()
+
         try:
             if self.protocol.timeout_seconds > 0:
                 try:

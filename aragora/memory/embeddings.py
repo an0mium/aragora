@@ -31,7 +31,13 @@ import os
 import struct
 from pathlib import Path
 
-import aiohttp
+from aragora._lazy_imports import lazy_module
+
+# Optional runtime dep: imported lazily so the debate engine can import this
+# module on a base install that lacks aiohttp. aiohttp is only touched when an
+# embedding is actually fetched from a remote API; the offline/hash fallback
+# path never needs it.
+aiohttp = lazy_module("aiohttp")
 
 from aragora.config import CACHE_TTL_EMBEDDINGS, get_api_key
 from aragora.exceptions import ExternalServiceError, REDIS_CONNECTION_ERRORS
@@ -61,8 +67,17 @@ def _get_embedding_cache() -> EmbeddingCache:
     return _embedding_cache
 
 
-# Default API timeout
-_API_TIMEOUT = aiohttp.ClientTimeout(total=30)
+# Default API timeout (built lazily so importing this module does not force
+# the optional aiohttp dependency to be present).
+_API_TIMEOUT_CACHE: Any = None
+
+
+def _api_timeout() -> Any:
+    global _API_TIMEOUT_CACHE
+    if _API_TIMEOUT_CACHE is None:
+        _API_TIMEOUT_CACHE = aiohttp.ClientTimeout(total=30)
+    return _API_TIMEOUT_CACHE
+
 
 # Track registration status
 _embedding_cache_registered = False
@@ -203,7 +218,7 @@ class OpenAIEmbedding(EmbeddingProvider):
             return cached
 
         async def _call() -> list[float]:
-            async with aiohttp.ClientSession(timeout=_API_TIMEOUT) as session:
+            async with aiohttp.ClientSession(timeout=_api_timeout()) as session:
                 async with session.post(
                     "https://api.openai.com/v1/embeddings",
                     headers={
@@ -234,7 +249,7 @@ class OpenAIEmbedding(EmbeddingProvider):
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         async def _call() -> list[list[float]]:
-            async with aiohttp.ClientSession(timeout=_API_TIMEOUT) as session:
+            async with aiohttp.ClientSession(timeout=_api_timeout()) as session:
                 async with session.post(
                     "https://api.openai.com/v1/embeddings",
                     headers={
@@ -281,7 +296,7 @@ class GeminiEmbedding(EmbeddingProvider):
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:embedContent"
 
         async def _call() -> list[float]:
-            async with aiohttp.ClientSession(timeout=_API_TIMEOUT) as session:
+            async with aiohttp.ClientSession(timeout=_api_timeout()) as session:
                 async with session.post(
                     url,
                     headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
@@ -317,7 +332,7 @@ class OllamaEmbedding(EmbeddingProvider):
         self.dimension = 768  # nomic-embed-text
 
     async def embed(self, text: str) -> list[float]:
-        async with aiohttp.ClientSession(timeout=_API_TIMEOUT) as session:
+        async with aiohttp.ClientSession(timeout=_api_timeout()) as session:
             try:
                 async with session.post(
                     f"{self.base_url}/api/embeddings",
@@ -358,7 +373,7 @@ class SemanticRetriever:
     def __init__(
         self,
         db_path: str,
-        provider: EmbeddingProvider = None,
+        provider: EmbeddingProvider | None = None,
     ):
         self.db_path = Path(db_path)
         self.db = MemoryDatabase(db_path)

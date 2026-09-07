@@ -211,10 +211,29 @@ async def init_km_adapters() -> bool:
         True if adapters were initialized, False otherwise
     """
     try:
-        from aragora.events.cross_subscribers import get_cross_subscriber_manager
         from aragora.knowledge.mound.adapters import RankingAdapter, RlmAdapter
+        from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
 
-        manager = get_cross_subscriber_manager()
+        # Superset bootstrap: imports the domain/application/interface home modules so
+        # the relocated cross-subsystem reactions (P4a E2+) self-register and are wired
+        # into the singleton at server startup (a miss = silently lost reactions).
+        try:
+            manager = bootstrap_event_subscribers()
+        except RuntimeError as e:
+            # bootstrap_event_subscribers() fail-closes with RuntimeError when an
+            # expected application/interface handler (e.g.
+            # alert_escalated_to_workflow_brake) didn't self-register. That is a
+            # real wiring regression, not a routine adapter-init failure, so it
+            # must not fall through to the generic except below and get
+            # downgraded to the same warning as e.g. a RankingAdapter hiccup
+            # (P4a E8 SCOPE #3): log it loudly and distinctly instead.
+            logger.error(
+                "Event subscriber bootstrap failed its fail-closed handler check "
+                "during KM adapter init - relocated cross-subsystem reactions are "
+                "NOT fully wired: %s",
+                e,
+            )
+            return False
 
         # Initialize RankingAdapter
         # RankingAdapter is instantiable despite inheriting abstract base

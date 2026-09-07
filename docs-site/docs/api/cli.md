@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **109**
-- Total top-level invocations (including aliases): **110**
+- Canonical top-level commands: **110**
+- Total top-level invocations (including aliases): **111**
 
 ## Installation
 
@@ -58,7 +58,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `codebase-audit` | - | Run a staged repo audit with triage, threat-surface ranking, and deep audit | - |
 | `codex` | - | Read-only inspector for Codex Desktop local state | `insights`, `sessions` |
 | `coherence-scan` | - | DIC-26: scan a belief ledger for contradictions, evidence conflicts, and confidence rot | - |
-| `compliance` | - | Compliance framework and EU AI Act tools | `audit`, `check`, `classify`, `eu-ai-act`, `evidence`, `export`, `report`, `status` |
+| `compliance` | - | Compliance framework and EU AI Act tools | `audit`, `check`, `classify`, `eu-ai-act`, `evidence`, `export`, `oversight-pack`, `report`, `status` |
 | `computer-use` | - | Computer use task management | `list`, `run`, `status` |
 | `config` | - | Manage configuration | - |
 | `connectors` | - | Connector management commands | `list`, `status`, `test` |
@@ -102,6 +102,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `mcp-server` | - | Run the MCP (Model Context Protocol) server | - |
 | `memory` | - | Memory management commands | `promote`, `query`, `stats`, `store` |
 | `metrics` | - | AGT-06: read VIAH and other operator metrics | `status`, `viah` |
+| `mission` | - | Run or manage native missions | - |
 | `modes` | - | List available operational modes | - |
 | `nomic` | - | Nomic loop self-improvement commands | `history`, `resume`, `run`, `status` |
 | `openclaw` | - | OpenClaw Enterprise Gateway management | `audit`, `init`, `next-steps`, `policy`, `review`, `serve`, `status`, `watch` |
@@ -133,7 +134,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `spec` | - | Transform a vague idea into a structured specification | - |
 | `starter` | - | SME Starter Pack -- install to decision receipt in 15 minutes | - |
 | `stats` | - | Show memory statistics | - |
-| `status` | - | Show environment health and agent availability | - |
+| `status` | - | Show environment health, agent availability, or founder ops status | - |
 | `swarm` | - | Launch a swarm of AI agents to accomplish a goal | - |
 | `tasks` | - | Inspect and operate the developer task queue | `claim`, `complete`, `heartbeat`, `leases`, `list`, `release`, `salvage`, `show`, `stats`, `sync` |
 | `template` | - | Manage workflow templates | `list`, `package`, `run`, `show`, `validate` |

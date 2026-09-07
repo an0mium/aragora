@@ -294,6 +294,7 @@ class TestOpenRouterModelFallback:
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
         assert len(OPENROUTER_FALLBACK_MODELS) > 0
+        assert "qwen/qwen3.8-max" in OPENROUTER_FALLBACK_MODELS
         assert "qwen/qwen-2.5-72b-instruct" in OPENROUTER_FALLBACK_MODELS
         assert "deepseek/deepseek-v4-pro" in OPENROUTER_FALLBACK_MODELS
 
@@ -309,9 +310,58 @@ class TestOpenRouterModelFallback:
         # DeepSeek -> GPT-5.5
         assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-v4-pro"] == "openai/gpt-5.5"
 
+    @pytest.mark.parametrize(
+        ("retired", "replacement", "frontier_fallback"),
+        [
+            (
+                "perplexity/sonar-reasoning",
+                "perplexity/sonar-reasoning-pro",
+                "openai/gpt-5.5",
+            ),
+            ("cohere/command-r-plus", "cohere/command-a", "openai/gpt-5.5"),
+            ("ai21/jamba-1.6-large", "ai21/jamba-large-1.7", "openai/gpt-5.5"),
+            ("x-ai/grok-4", "x-ai/grok-4.5", "openai/gpt-5.5"),
+        ],
+    )
+    def test_retired_defaults_fall_forward_then_fail_over(
+        self,
+        mock_env_with_api_keys,
+        retired,
+        replacement,
+        frontier_fallback,
+    ):
+        from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
+
+        assert OPENROUTER_FALLBACK_MODELS[retired] == replacement
+        assert OPENROUTER_FALLBACK_MODELS[replacement] == frontier_fallback
+
 
 class TestOpenRouterGenerateStream:
     """Tests for streaming generation."""
+
+    @pytest.mark.asyncio
+    async def test_stream_blocks_before_network_when_budget_cap_reached(
+        self, mock_env_with_api_keys, monkeypatch, tmp_path
+    ):
+        """OpenRouter streaming must obey the fail-closed monthly cap."""
+        from aragora.agents.api_agents.openrouter import OpenRouterAgent
+        from aragora.billing import budget_guard
+        from aragora.billing.budget_guard import BudgetExceededError
+
+        monkeypatch.setenv("ARAGORA_MONTHLY_BUDGET_USD", "1")
+        monkeypatch.setenv("ARAGORA_BUDGET_GUARD_STORE", str(tmp_path / "budget.json"))
+        budget_guard._mem_state.clear()
+
+        agent = OpenRouterAgent()
+        monkeypatch.setattr(agent, "_estimate_budget_cost_from_text_usd", lambda text, max_out: 2.0)
+
+        with patch("aragora.agents.api_agents.openrouter.create_client_session") as create_session:
+            with pytest.raises(AgentStreamError) as exc_info:
+                async for _ in agent.generate_stream("Test prompt"):
+                    pass
+
+        assert isinstance(exc_info.value.__cause__, BudgetExceededError)
+        create_session.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_stream_yields_chunks(
@@ -498,7 +548,7 @@ class TestQwenAgent:
         agent = QwenAgent()
 
         assert agent.name == "qwen"
-        assert "qwen" in agent.model
+        assert agent.model == "qwen/qwen3.8-max"
         assert agent.agent_type == "qwen"
 
     def test_agent_registry_registration(self, mock_env_with_api_keys):
@@ -520,8 +570,7 @@ class TestQwenMaxAgent:
         agent = QwenMaxAgent()
 
         assert agent.name == "qwen-max"
-        assert "qwen" in agent.model
-        assert "max" in agent.model
+        assert agent.model == "qwen/qwen3.8-max"
         assert agent.agent_type == "qwen-max"
 
 
@@ -539,18 +588,23 @@ class TestYiAgent:
         assert agent.agent_type == "yi"
 
 
-class TestKimiK2Agent:
+class TestKimiK3Agent:
     """Tests for the default Kimi frontier agent."""
 
     def test_init_with_defaults(self, mock_env_with_api_keys):
-        """Should initialize with Kimi K2.6 defaults."""
-        from aragora.agents.api_agents.openrouter import KimiK2Agent
+        """Should initialize with Kimi K3 defaults."""
+        from aragora.agents.api_agents.openrouter import KimiK3Agent
 
-        agent = KimiK2Agent()
+        agent = KimiK3Agent()
 
         assert agent.name == "kimi"
-        assert agent.model == "moonshotai/kimi-k2.6"
+        assert agent.model == "moonshotai/kimi-k3"
         assert agent.agent_type == "kimi"
+
+    def test_kimi_k2_class_name_remains_a_compatibility_alias(self):
+        from aragora.agents.api_agents.openrouter import KimiK2Agent, KimiK3Agent
+
+        assert KimiK2Agent is KimiK3Agent
 
     def test_agent_registry_registration(self, mock_env_with_api_keys):
         """Should be registered in agent registry."""
@@ -571,7 +625,7 @@ class TestKimiThinkingAgent:
         agent = KimiThinkingAgent()
 
         assert agent.name == "kimi-thinking"
-        assert "thinking" in agent.model
+        assert agent.model == "moonshotai/kimi-k2-thinking"
         assert agent.agent_type == "kimi-thinking"
 
 
@@ -609,7 +663,7 @@ class TestSonarAgent:
         agent = SonarAgent()
 
         assert agent.name == "sonar"
-        assert "sonar" in agent.model
+        assert agent.model == "perplexity/sonar-reasoning-pro"
         assert agent.agent_type == "sonar"
 
 
@@ -623,7 +677,7 @@ class TestCommandRAgent:
         agent = CommandRAgent()
 
         assert agent.name == "command-r"
-        assert "command" in agent.model
+        assert agent.model == "cohere/command-a"
         assert agent.agent_type == "command-r"
 
 
@@ -637,7 +691,7 @@ class TestJambaAgent:
         agent = JambaAgent()
 
         assert agent.name == "jamba"
-        assert "jamba" in agent.model
+        assert agent.model == "ai21/jamba-large-1.7"
         assert agent.agent_type == "jamba"
 
 

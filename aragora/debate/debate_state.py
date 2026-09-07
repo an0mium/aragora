@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, DebateResult, Environment, Message
     from aragora.debate.cancellation import CancellationToken
-    from aragora.type_protocols import EventEmitterProtocol
+    from aragora.protocols import EventEmitterProtocol
 
 
 def _default_environment() -> Environment:
@@ -375,10 +375,10 @@ class DebateContext:
         return self.proposals.get(agent_name, "")
 
     def add_message(self, msg: Message) -> None:
-        """Add a message to both context and partial tracking."""
+        """Record one message in context, recovery, and final-result tracking."""
         self.context_messages.append(msg)
         self.partial_messages.append(msg)
-        if self.result:
+        if self.result is not None:
             self.result.messages.append(msg)
 
     def record_agent_failure(

@@ -233,7 +233,7 @@ cm = ContinuumMemory()
 stats = cm.get_stats()
 print(f'Total entries: {stats[\"total_entries\"]}')
 for tier, count in stats['tier_counts'].items():
-    print(f'  \{tier\}: \{count\}')
+    print(f'  {tier}: {count}')
 "
 ```
 
@@ -247,7 +247,7 @@ metrics = manager.get_metrics_dict()
 print(f"Total promotions: {metrics['total_promotions']}")
 print(f"Total demotions: {metrics['total_demotions']}")
 for transition, count in metrics['promotions'].items():
-    print(f"  \{transition\}: \{count\}")
+    print(f"  {transition}: {count}")
 ```
 
 ## Performance Benchmarks

@@ -738,7 +738,7 @@ def inject_context(carrier: dict[str, str]) -> dict[str, str]:
 
     # Fall back to manual injection from internal tracing
     try:
-        from aragora.server.middleware.tracing import get_trace_id, get_span_id
+        from aragora.observability.middleware.tracing import get_trace_id, get_span_id
 
         trace_id = get_trace_id()
         span_id = get_span_id()

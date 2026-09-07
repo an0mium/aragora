@@ -14,6 +14,8 @@ Usage:
 See aragora.observability for full documentation.
 """
 
+import warnings
+
 # Re-export everything from observability
 from aragora.observability import (
     LogConfig,
@@ -108,3 +110,9 @@ __all__ = [
     "is_tracing_enabled",
     "is_metrics_enabled",
 ]
+
+warnings.warn(
+    "aragora.telemetry is deprecated; import from aragora.observability instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)

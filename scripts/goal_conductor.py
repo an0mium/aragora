@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
+import sys
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -42,6 +44,42 @@ def _utc_now() -> str:
 def _slug(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", value.strip()).strip("-")
     return slug[:80] or "goal"
+
+
+def _mute_stdout_after_broken_pipe() -> bool:
+    """Redirect stdout's fd after a real broken pipe without mutating wrappers."""
+
+    current = sys.stdout
+    fileno = getattr(current, "fileno", None)
+    if not callable(fileno):
+        return False
+    try:
+        stdout_fd = fileno()
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(devnull_fd, stdout_fd)
+        finally:
+            os.close(devnull_fd)
+    except (AttributeError, OSError, ValueError):
+        return False
+    return True
+
+
+def _emit_output(output: str) -> None:
+    stream = sys.stdout
+    if stream is None:
+        return
+    write = getattr(stream, "write", None)
+    if not callable(write):
+        return
+    try:
+        write(output)
+        write("\n")
+        flush = getattr(stream, "flush", None)
+        if callable(flush):
+            flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -786,11 +824,11 @@ def main(argv: list[str] | None = None) -> int:
             "collect_merge_packets": mission.collect_merge_packets,
             "max_merge_packets": mission.max_merge_packets,
         }
-        print(json.dumps(payload, indent=2) if args.json else f"mission ok: {mission.name}")
+        _emit_output(json.dumps(payload, indent=2) if args.json else f"mission ok: {mission.name}")
         return 0
     if args.command == "snapshot":
         snapshot = conductor.snapshot()
-        print(json.dumps(snapshot, indent=2) if args.json else json.dumps(snapshot, indent=2))
+        _emit_output(json.dumps(snapshot, indent=2))
         return 0
     if args.command == "loop":
         results = conductor.run_loop(
@@ -813,7 +851,7 @@ def main(argv: list[str] | None = None) -> int:
                 for result in results
             ],
         }
-        print(json.dumps(payload, indent=2) if args.json else f"cycles: {len(results)}")
+        _emit_output(json.dumps(payload, indent=2) if args.json else f"cycles: {len(results)}")
         return 0
     result = conductor.run_once()
     payload = {
@@ -825,7 +863,7 @@ def main(argv: list[str] | None = None) -> int:
         "jsonl_path": str(result.jsonl_path),
         "markdown_path": str(result.markdown_path),
     }
-    print(json.dumps(payload, indent=2) if args.json else f"handoff: {result.markdown_path}")
+    _emit_output(json.dumps(payload, indent=2) if args.json else f"handoff: {result.markdown_path}")
     return 0
 
 

@@ -101,7 +101,7 @@ class ControlPlaneConfig:
 POST /api/control-plane/agents/register
 GET  /api/control-plane/agents
 POST /api/control-plane/tasks/submit
-GET  /api/control-plane/tasks/\{task_id\}
+GET  /api/control-plane/tasks/{task_id}
 GET  /api/control-plane/health
 ```
 

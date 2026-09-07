@@ -30,6 +30,8 @@ under `aragora/protocols/`. This file re-exports everything for backward
 compatibility. New code should import from `aragora.protocols` directly.
 """
 
+import warnings
+
 # =============================================================================
 # Re-exports from focused protocol modules (backward compatibility)
 # =============================================================================
@@ -95,6 +97,13 @@ from aragora.protocols.tracker_protocols import (  # noqa: F401
     PositionLedgerProtocol,
     PositionTrackerProtocol,
     RelationshipTrackerProtocol,
+)
+
+warnings.warn(
+    "aragora.type_protocols is deprecated; import protocols from aragora.protocols "
+    "instead (e.g. `from aragora.protocols import AgentProtocol`).",
+    DeprecationWarning,
+    stacklevel=2,
 )
 
 __all__ = [

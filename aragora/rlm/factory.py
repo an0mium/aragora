@@ -228,7 +228,7 @@ def get_rlm(
         if not HAS_OFFICIAL_RLM:
             error_msg = (
                 "TRUE RLM required but official RLM library not installed. "
-                "Install with: pip install aragora[rlm] or pip install rlm"
+                "Install with: pip install rlm"
             )
             logger.error("[RLM Factory] %s", error_msg)
             raise RuntimeError(error_msg)
@@ -264,12 +264,12 @@ def get_rlm(
         if warn_on_fallback and effective_mode in (RLMMode.AUTO, RLMMode.TRUE_RLM):
             logger.warning(
                 "[RLM Factory] TRUE RLM not available, using compression fallback. "
-                "For better performance, install: pip install aragora[rlm]"
+                "For better performance, install: pip install rlm"
             )
         else:
             logger.info(
                 "[RLM Factory] Created AragoraRLM with compression fallback "
-                "(official RLM not installed - pip install aragora[rlm] for TRUE RLM)"
+                "(official RLM not installed - pip install rlm for TRUE RLM)"
             )
 
     # Cache if using default config and no specific mode
@@ -468,7 +468,7 @@ def require_true_rlm_decorator():
             if not HAS_OFFICIAL_RLM:
                 raise RuntimeError(
                     f"Function {func.__name__} requires TRUE RLM but official library "
-                    "is not installed. Install with: pip install aragora[rlm]"
+                    "is not installed. Install with: pip install rlm"
                 )
             return await func(*args, **kwargs)
 

@@ -18,9 +18,7 @@ dedicated ports alongside whichever HTTP server is active.
 **Command:**
 
 ```bash
-python -m aragora.server --port 8080
-# or
-aragora serve
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 **Architecture:**
@@ -101,7 +99,7 @@ Response
 **Multi-worker mode:**
 
 ```bash
-python -m aragora.server --workers 4 --host 0.0.0.0
+aragora serve --workers 4 --host 0.0.0.0
 ```
 
 Spawns N worker processes using `multiprocessing.Process`. Each worker binds to
@@ -117,8 +115,8 @@ is expected in front for load balancing.
 ```bash
 uvicorn aragora.server.app:app --port 8081
 
-# Or via environment variable with legacy server:
-ARAGORA_USE_FASTAPI=true python -m aragora.server
+# Or via environment variable with the bundled server:
+ARAGORA_USE_FASTAPI=true aragora serve
 ```
 
 **Architecture:**
@@ -191,7 +189,7 @@ include: `debate_start`, `round_start`, `agent_message`, `critique`, `vote`,
 ## Offline Mode
 
 ```bash
-python -m aragora.server --offline
+aragora serve --demo
 ```
 
 Sets three environment variables before starting any workers:

@@ -1,10 +1,10 @@
-"""Tests for aragora.metrics.capability_checkpoint — AGT-06 CP-* registry."""
+"""Tests for aragora.evaluation.capability_checkpoint — AGT-06 CP-* registry."""
 
 from __future__ import annotations
 
 import pytest
 
-from aragora.metrics.capability_checkpoint import (
+from aragora.evaluation.capability_checkpoint import (
     CheckpointCode,
     CheckpointRecord,
     CheckpointRegistry,

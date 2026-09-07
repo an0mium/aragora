@@ -17,7 +17,6 @@ comments suppress mypy warnings that are expected for this mixin pattern.
 
 from __future__ import annotations
 
-import aiohttp
 import asyncio
 import logging
 import time
@@ -25,6 +24,26 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Protocol
 from collections.abc import Sequence
+
+
+def _aiohttp_client_error() -> type[BaseException]:
+    """Return ``aiohttp.ClientError`` if aiohttp is installed, else a sentinel.
+
+    aiohttp is an optional dependency used only to widen a fallback ``except``
+    clause. Resolving it lazily lets the debate engine import this module on a
+    base install that lacks aiohttp; when aiohttp is absent the returned
+    sentinel class is never raised, so the surrounding ``except`` is a no-op
+    for it.
+    """
+    try:
+        import aiohttp
+    except ImportError:
+
+        class _MissingAiohttpClientError(Exception):
+            pass
+
+        return _MissingAiohttpClientError
+    return aiohttp.ClientError
 
 
 # Distributed tracing support
@@ -53,7 +72,7 @@ def _mock_trace_context(
 # Pre-declare trace_context for optional import
 trace_context: Any = _mock_trace_context
 try:
-    from aragora.server.middleware.tracing import trace_context
+    from aragora.observability.middleware.tracing import trace_context  # type: ignore[no-redef]
 
     TRACING_AVAILABLE = True
 except ImportError:
@@ -469,10 +488,10 @@ class QueryOperationsMixin(_QueryMixinBase):
 
         # Query the meta store for recent nodes
         if hasattr(self._meta_store, "get_recent_nodes_async"):
-            return await self._meta_store.get_recent_nodes_async(ws_id, limit)
+            return await self._meta_store.get_recent_nodes_async(ws_id, limit)  # type: ignore[union-attr]
         else:
             # SQLite fallback - query nodes ordered by updated_at
-            nodes = self._meta_store.query_nodes(
+            nodes = self._meta_store.query_nodes(  # type: ignore[union-attr]
                 workspace_id=ws_id,
                 limit=limit,
             )
@@ -527,7 +546,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                     if node:
                         items.append(node)
                 return items
-            except (RuntimeError, ValueError, OSError, aiohttp.ClientError) as e:
+            except (RuntimeError, ValueError, OSError, _aiohttp_client_error()) as e:
                 logger.debug("Semantic store search failed (falling back to keyword): %s", e)
 
         if not allow_fallback:
@@ -609,7 +628,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                     return None
                 source = getattr(item, "source", None) or getattr(item, "source_type", None)
                 source_str = (
-                    source.value
+                    source.value  # type: ignore[union-attr]
                     if hasattr(source, "value")
                     else str(source)
                     if source
@@ -792,7 +811,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                     node_ids.add(node.id)
                     source = getattr(node, "source", None) or getattr(node, "source_type", None)
                     source_str = (
-                        source.value
+                        source.value  # type: ignore[union-attr]
                         if hasattr(source, "value")
                         else str(source)
                         if source
@@ -814,7 +833,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                     edge, "relationship_type", None
                 )
                 rel_type_str = (
-                    rel_type.value
+                    rel_type.value  # type: ignore[union-attr]
                     if hasattr(rel_type, "value")
                     else str(rel_type)
                     if rel_type
@@ -837,7 +856,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                 node_ids.add(item.id)
                 source = getattr(item, "source", None) or getattr(item, "source_type", None)
                 source_str = (
-                    source.value
+                    source.value  # type: ignore[union-attr]
                     if hasattr(source, "value")
                     else str(source)
                     if source
@@ -868,7 +887,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                             rel, "relationship_type", None
                         )
                         rel_type_str = (
-                            rel_type.value
+                            rel_type.value  # type: ignore[union-attr]
                             if hasattr(rel_type, "value")
                             else str(rel_type)
                             if rel_type
@@ -1137,8 +1156,8 @@ class QueryOperationsMixin(_QueryMixinBase):
 
         # If the postgres store has the method, use it
         if hasattr(self._meta_store, "get_grants_for_grantee_async"):
-            grants = await self._meta_store.get_grants_for_grantee_async(actor_id)
-            workspace_grants = await self._meta_store.get_grants_for_grantee_async(
+            grants = await self._meta_store.get_grants_for_grantee_async(actor_id)  # type: ignore[union-attr]
+            workspace_grants = await self._meta_store.get_grants_for_grantee_async(  # type: ignore[union-attr]
                 actor_workspace_id, grantee_type="workspace"
             )
 

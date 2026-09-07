@@ -12,20 +12,28 @@ description: "Aragora: Canonical Goals & Foundational Thesis"
 
 ## Canonical Metrics
 
-Live project-scale numbers are auto-regenerated in [`docs/METRICS.md`](METRICS.md). If a numeric claim in this document or any other doc disagrees with `docs/METRICS.md`, the generated metrics doc wins.
+Live project-scale numbers are auto-regenerated in [`docs/METRICS.md`](https://github.com/synaptent/aragora/blob/main/docs/METRICS.md). If a numeric claim in this document or any other doc disagrees with `docs/METRICS.md`, the generated metrics doc wins.
+
+<!-- metrics:begin canonical-goals-metrics -->
+| Metric | Value | Source |
+|--------|-------|--------|
+| Version | 2.10.0 | `pyproject.toml` |
+| Python files under `aragora/` | 4,310 | `docs/METRICS.md` |
+| Python modules | 145 top-level package directories | `docs/METRICS.md` |
+| Lines of code under `aragora/` | 1,994,979 | `docs/METRICS.md` |
+| Automated tests | 226,053 test functions | `docs/METRICS.md` |
+| Test files | 5,551 | `docs/METRICS.md` |
+| API operations | 3,205 across 2,912 paths | `docs/METRICS.md` |
+| API paths | 2,912 | `docs/METRICS.md` |
+| Knowledge Mound adapters | 46 adapter files / 41 registered specs | `docs/METRICS.md` |
+<!-- metrics:end -->
+
+Other canonical claims (manually maintained):
 
 | Metric | Value | Source |
 |--------|-------|--------|
-| Version | 2.9.0 | `pyproject.toml` |
-| Python files under `aragora/` | 4,069 | `docs/METRICS.md` |
-| Python modules | 135 top-level package directories | `docs/METRICS.md` |
-| Lines of code under `aragora/` | 1,915,420 | `docs/METRICS.md` |
-| Automated tests | 216,016 test functions | `docs/METRICS.md` |
-| Test files | 5,078 | `docs/METRICS.md` |
-| API operations | 3,386 across 2,928 paths | `docs/METRICS.md` |
-| API paths | 2,928 | `docs/METRICS.md` |
-| Knowledge Mound adapters | 46 adapter files / 41 registered specs | `docs/METRICS.md` |
-| Agent types | 43 across 6+ LLM providers | agent registry |
+| Agent types (registered) | 46 across 6+ LLM providers | `list_available_agents()` in `aragora/agents/base.py` |
+| Agent types (allowlisted) | 35 (see `docs/METRICS.md`) | `ALLOWED_AGENT_TYPES` in `aragora/config/settings.py` |
 | Workflow templates | 50+ across 6 categories | template registry |
 | Handler modules | 580+ | handlers directory |
 | GA readiness | Pre-GA; remaining launch work is tracked in `GA_CHECKLIST.md` | `GA_CHECKLIST.md` |

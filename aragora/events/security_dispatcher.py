@@ -7,7 +7,8 @@ the Arena debate orchestrator.
 
 Flow:
     Scanner detects critical issue → SecurityEvent emitted →
-    SecurityDispatcher receives → Arena.run_security_debate() →
+    SecurityDispatcher receives → registered security debate runner
+    (aragora.debate.security_response.trigger_security_debate) →
     Multi-agent deliberation → ConsensusProof with remediation
 
 Usage:
@@ -42,6 +43,8 @@ from aragora.events.security_events import (
     SecurityEventEmitter,
     SecurityEventType,
     SecuritySeverity,
+    _accepted_security_debate_runner_kwargs,
+    get_security_debate_runner,
     get_security_emitter,
 )
 
@@ -197,7 +200,8 @@ class SecurityDispatcher:
         """
         Set a custom callback for triggering debates.
 
-        This allows overriding the default Arena.run_security_debate call.
+        This allows overriding the default registered security debate runner
+        (see aragora.events.security_events.get_security_debate_runner).
 
         Args:
             callback: Async function that takes a SecurityEvent and returns
@@ -260,6 +264,9 @@ class SecurityDispatcher:
         Returns:
             True if the event should trigger a debate
         """
+        if event.debate_id or event.debate_requested:
+            return False
+
         # Always trigger for specific event types
         if event.event_type in self.config.always_trigger_types:
             return True
@@ -328,6 +335,7 @@ class SecurityDispatcher:
 
         # Set cooldown for repository
         self._set_cooldown(event.repository)
+        event.debate_requested = True
 
         # Create debate task
         task = asyncio.create_task(self._run_debate(event))
@@ -355,29 +363,49 @@ class SecurityDispatcher:
             The debate ID if successful, None otherwise
         """
         try:
-            # Use custom callback if provided
+            # Use custom callback if provided, else the registered domain runner
+            # (aragora.debate.security_response.trigger_security_debate). Routing
+            # the default path through this same hook -- instead of importing
+            # Arena directly -- keeps aragora.events free of aragora.debate imports.
             if self._custom_trigger_callback:
                 debate_id = await self._custom_trigger_callback(event)
             else:
-                # Use Arena.run_security_debate
-                from aragora.debate.orchestrator import Arena
+                runner = get_security_debate_runner()
+                if runner is None:
+                    raise ImportError(
+                        "No security debate runner registered; a composition root "
+                        "must call register_security_debate_runner() (importing "
+                        "aragora.debate.security_response registers the default)"
+                    )
 
-                result = await Arena.run_security_debate(
-                    event=event,
+                runner_kwargs = _accepted_security_debate_runner_kwargs(
+                    runner,
                     confidence_threshold=self.config.debate_confidence_threshold,
                     timeout_seconds=self.config.debate_timeout_seconds,
                 )
-                debate_id = result.debate_id
+                if runner_kwargs:
+                    debate_id = await runner(event, **runner_kwargs)
+                else:
+                    debate_id = await runner(event)
 
-            self._stats.debates_completed += 1
+            if debate_id:
+                event.debate_requested = True
+                event.debate_id = debate_id
+                self._stats.debates_completed += 1
+            else:
+                event.debate_requested = False
             return debate_id
 
         except asyncio.CancelledError:
             logger.info("Debate for event %s was cancelled", event.id)
+            event.debate_requested = False
+            event.debate_id = None
             return None
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
             logger.exception("Debate for event %s failed: %s", event.id, e)
+            event.debate_requested = False
+            event.debate_id = None
             self._stats.debates_failed += 1
             return None
 
@@ -456,6 +484,20 @@ async def start_security_dispatcher(
     Initialize and start the global security dispatcher.
 
     Convenience function for application startup.
+
+    This starts event dispatch only; it does not register a security debate
+    runner. A composition root must separately ensure the runner is
+    registered before triggering severity thresholds are reached, or the
+    default (no-custom-callback) debate path fails soft with a logged
+    ImportError (see SecurityDispatcher._run_debate). Callers who want the
+    default auto-debate path wired up should first call one of:
+      - aragora.debate.orchestrator (import triggers registration)
+      - aragora.debate.event_subscribers.bootstrap_debate_event_subscribers()
+      - aragora.debate.security_response.ensure_registered()
+    A caller that instead supplies its own callback via
+    SecurityDispatcher.set_custom_trigger() does not need any of the above,
+    since the custom callback bypasses the registered-runner lookup
+    entirely.
 
     Args:
         config: Optional dispatcher configuration

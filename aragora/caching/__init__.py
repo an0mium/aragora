@@ -25,6 +25,7 @@ Usage:
         ...
 """
 
+from aragora.caching.adaptive import AccessPattern, AdaptiveTTLCache, CacheOptimizer
 from aragora.caching.decorators import (
     cached,
     async_cached,
@@ -35,8 +36,35 @@ from aragora.caching.decorators import (
     get_global_cache_stats,
     clear_all_caches,
 )
+from aragora.caching.redis import HybridTTLCache, RedisTTLCache
+from aragora.caching.registry import (
+    CacheBackend,
+    get_all_cache_stats,
+    get_cache,
+    list_caches,
+    make_cache_key,
+    make_content_hash,
+    register_cache,
+)
+from aragora.caching.ttl import (
+    CacheManager,
+    CachePreset,
+    TTLCache,
+    async_ttl_cache,
+    cached_property_ttl,
+    get_cache_manager,
+    get_cache_stats,
+    get_handler_cache,
+    get_method_cache,
+    get_query_cache,
+    invalidate_cache,
+    invalidate_method_cache,
+    lru_cache_with_ttl,
+    ttl_cache,
+)
 
 __all__ = [
+    # Decorators (function-result caching)
     "cached",
     "async_cached",
     "memoize",
@@ -45,4 +73,34 @@ __all__ = [
     "CacheEntry",
     "get_global_cache_stats",
     "clear_all_caches",
+    # Cache registry + backend protocol
+    "CacheBackend",
+    "register_cache",
+    "get_cache",
+    "get_all_cache_stats",
+    "list_caches",
+    "make_cache_key",
+    "make_content_hash",
+    # In-memory TTL cache primitives
+    "TTLCache",
+    "CacheManager",
+    "CachePreset",
+    "ttl_cache",
+    "async_ttl_cache",
+    "lru_cache_with_ttl",
+    "cached_property_ttl",
+    "get_cache_manager",
+    "get_cache_stats",
+    "get_handler_cache",
+    "get_method_cache",
+    "get_query_cache",
+    "invalidate_cache",
+    "invalidate_method_cache",
+    # Redis-backed cache
+    "RedisTTLCache",
+    "HybridTTLCache",
+    # Adaptive cache
+    "AdaptiveTTLCache",
+    "AccessPattern",
+    "CacheOptimizer",
 ]

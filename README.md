@@ -1,609 +1,572 @@
 # Aragora
 
-Aragora is an auditable execution control plane for AI-assisted work. It
-governs consequential decisions and execution with multi-model review,
-receipts, provenance, and truthful gates.
+**Aragora is an auditable execution control plane for AI-assisted decisions:
+multi-model review in, a verifiable Decision Receipt out.**
 
-### Govern AI-Assisted Work With Receipts, Review, and Truthful Gates
+It coordinates heterogeneous models to adversarially review a change or a
+decision, preserves the dissent and provenance, stops truthfully when evidence
+is thin, and emits a portable receipt anyone can verify offline with the
+standalone verifier ([`pip install -U 'aragora-verify>=0.1.1'`](https://pypi.org/project/aragora-verify/)).
 
 [![PyPI](https://img.shields.io/pypi/v/aragora)](https://pypi.org/project/aragora/)
-[![Tests](https://github.com/synaptent/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/test.yml)
-[![Smoke Tests](https://github.com/synaptent/aragora/actions/workflows/smoke.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/smoke.yml)
-[![Docker Build](https://github.com/synaptent/aragora/actions/workflows/docker.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/docker.yml)
-[![Deploy](https://github.com/synaptent/aragora/actions/workflows/deploy-lightsail.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/deploy-lightsail.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-**New here?** Start with the [Quickstart Guide](docs/quickstart.md) -- you'll have a working debate in under a minute. For a cold reviewer or auditor path, start with [Cold Reviewer Guide](docs/COLD_REVIEWER_GUIDE.md). For a deeper overview, see [Start Here](docs/START_HERE.md). For strategic framing, see [Positioning And Messaging](docs/strategy/POSITIONING_AND_MESSAGING.md) (includes competitive positioning), [Boundaries And Scope](docs/strategy/BOUNDARIES_AND_SCOPE.md) (includes when-to-use-Aragora-vs-execution-substrates), and [Precision And Terms](docs/strategy/PRECISION_AND_TERMS.md) (includes the terminology glossary). The consolidation of earlier-dated strategy files is tracked in [STRATEGY_INDEX.md](docs/STRATEGY_INDEX.md).
+> **New here?** The [Quickstart](docs/quickstart.md) gets you a working debate in
+> under a minute. Auditors should start with the [Cold Reviewer Guide](docs/COLD_REVIEWER_GUIDE.md).
 
-| I want to... | Install |
-|--------------|---------|
-| Try a debate in 30 seconds | `pip install aragora-debate` |
+| I want to… | Command |
+|------------|---------|
+| Run the standalone debate engine | `pip install aragora-debate` |
+| Verify an Open Decision Receipt with the standalone verifier | `pip install -U 'aragora-verify>=0.1.1' && aragora-verify receipt.odr.json` |
+| Run the current PyPI zero-key receipt demo | `pip install -U 'aragora>=2.9.0' && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
+| Audit this source checkout's exact CLI | `python3 -m pip install -e . && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
 
-**Individual LLMs are unreliable. Their personas shift with context, their
+Use `aragora>=2.9.0` for the explicit offline demo receipt round trip. Earlier
+PyPI releases do not support the `--offline` receipt flags. Use the source
+checkout path when you need to audit this exact branch or unreleased local
+changes.
+
+## The problem
+
+Individual LLMs are unreliable. Their personas shift with context, their
 confidence does not correlate with accuracy, and they often optimize for
-plausible agreement instead of truth.**
+plausible agreement instead of truth. Aragora treats that as a systems problem:
+it makes consequential AI-assisted decisions **inspectable and verifiable**
+instead of asking you to trust one model's say-so.
 
-Aragora treats that as a systems problem. It coordinates heterogeneous models
-through structured debate and review, preserves receipts and provenance, and
-stops truthfully when evidence is insufficient. The goal is not just faster AI
-output, but governed AI-assisted execution you can actually inspect.
+- **Disagreement becomes evidence.** Heterogeneous models challenge each other before work advances; dissent is preserved, not averaged away.
+- **Every decision has a receipt.** Verdict, the reviewing models and their independence, dissent, confidence, and provenance stay inspectable.
+- **It stops truthfully.** When the quorum can't be formed or evidence is thin, the receipt says so — it never fabricates a consensus.
+- **Receipts are portable and verifiable.** A receipt is a schema-conformant artifact (the [Open Decision Receipt](docs/specs/OPEN_DECISION_RECEIPT.md)) that `aragora-verify` checks offline, with no dependency on Aragora.
 
-Why teams adopt Aragora:
+## The wedge: a governance gate for AI-written code
 
-- **Disagreement becomes useful evidence.** Models challenge each other before work advances.
-- **Every consequential action has a receipt.** Review, provenance, confidence, and next steps stay inspectable.
-- **Execution is bounded and truthful.** Consequential actions are denied by default unless an admin-scoped approval artifact exists.
-- **Sandboxed effectors are mandatory.** Browser automation and similar effectors require an approved sandbox backend instead of host-side execution.
-- **It fits above existing tools.** Use Aragora when review and governance matter; keep direct runtimes when raw speed is enough.
-
-## Product Boundary
-
-Aragora is not a generic autonomous-agent platform or a replacement for worker
-runtimes like Codex, Claude Code, OpenCode, or Pi. It is the control plane used
-when AI-assisted work becomes consequential enough to require receipts, review,
-provenance, bounded delegation, and truthful stopping behavior.
-
-The explicit product non-goals are tracked in the
-[Non-Goals Ledger](docs/strategy/BOUNDARIES_AND_SCOPE.md). In practice that means:
-
-- we do not try to win on raw agent breadth or generic orchestration alone
-- we do not sell lights-out autonomy as the default story
-- we do not replace execution substrates; we govern work that runs through them
-- we do not treat bigger swarms as a product goal unless they improve truthfulness
-- we do not advance work without evidence, review, and clear terminal states
-
-### Current Stage Vs Finish Line
-
-The long-horizon vision is deliberately ambitious — Aragora is being built toward
-an auditable operating system for consequential AI-assisted work across the full
-*idea → goal → plan → action → receipt* loop, with heterogeneous adversarial
-agents, calibrated trust, executable claims that can go stale and trigger bounded
-repair, and proof-carrying code units that fail closed when their evidence
-decays. The staged evolution — Tool → Teammate → Foreman → Chief of Staff →
-Organization Substrate — is laid out in
-[docs/CANONICAL_GOALS.md](docs/CANONICAL_GOALS.md) with the sequencing through
-narrow reliability wedges in
-[docs/plans/ARAGORA_EVOLUTION_ROADMAP.md](docs/plans/ARAGORA_EVOLUTION_ROADMAP.md).
-
-**What Aragora is *today* is narrower than that finish line, and deliberately so.**
-The current promise is a trustworthy control plane for bounded AI-assisted
-software execution — with receipts, review, and truthful stopping behavior.
-Current-stage commercial positioning lives in
-[docs/COMMERCIAL_OVERVIEW.md](docs/COMMERCIAL_OVERVIEW.md); near-term execution
-sequencing lives in
-[docs/status/NEXT_STEPS_CANONICAL.md](docs/status/NEXT_STEPS_CANONICAL.md). The
-Decision Integrity Core tranche — crux-finding, executable claims, proof-carrying
-code — is tracked in
-[docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md](docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md)
-and gated on Foreman reliability. Claims here should stay narrower than the
-measured proof; the long-term vision is earned stage by stage, not asserted.
-
-## Try It Now
-
-**Option A -- One command, no API keys:**
-
-```bash
-pip install aragora && aragora demo
-```
-
-This runs a full adversarial debate with mock agents and opens a decision receipt in your browser.
-
-**Option B -- Docker (includes dashboard UI):**
-
-```bash
-docker compose -f deploy/demo/docker-compose.yml up
-# Open http://localhost:3000 — try any question in the playground
-```
-
-**Option C -- Live playground:**
-
-Visit the deployed instance and type any question. Three AI agents will debate it, critique each other, vote, and produce a shareable decision receipt.
-
-<details>
-<summary>What you'll see (click to expand)</summary>
-
-```
-================================================================
-  ARAGORA DEMO -- Adversarial Decision Stress-Test
-================================================================
-
-  Topic:  Should we adopt microservices?
-  Agents: Analyst, Critic, Synthesizer, Devil's Advocate
-  Rounds: 2
-
-  --- Round 1 --------------------------------------------------
-
-  [ANALYST] (supportive)
-    This is a sound strategy. The evidence points toward
-    significant gains in maintainability and team productivity.
-
-  [CRITIC] (critical)
-    The claimed benefits are overstated. Most organizations
-    underestimated the operational burden by 3-5x. I recommend
-    a modular monolith as the safer path.
-
-  [SYNTHESIZER] (balanced)
-    The tradeoffs here are real. On one hand, the current
-    architecture limits independent scaling. On the other,
-    the migration carries execution risk.
-
-  --- Decision Receipt -----------------------------------------
-
-  Verdict:    CONDITIONAL APPROVAL
-  Confidence: 72%
-  Consensus:  Partial (3 of 4 agents)
-  Dissent:    Devil's Advocate flagged migration risk
-```
-
-</details>
-
-```bash
-# Review your current changes against main
-git diff main | aragora review --demo
-
-# Or review a GitHub PR
-aragora review --pr https://github.com/org/repo/pull/123 --demo
-```
-
-```bash
-# Stress-test a specification
-aragora gauntlet spec.md --profile thorough --output receipt.html
-
-# Run a multi-agent debate
-aragora ask "Design a rate limiter for 1M req/sec" --agents anthropic-api,openai-api,gemini
-
-# Start the API server
-aragora serve
-```
-
-### Self-Improving Pipeline
-
-Aragora can improve itself under explicit supervision -- decompose a vague goal,
-assign subtasks to isolated worktrees, execute with gauntlet validation, and
-merge passing branches:
-
-```bash
-# Preview what the pipeline will do
-aragora self-improve "Maximize utility for SME businesses" --dry-run
-
-# Run with human approval gates and budget cap
-aragora self-improve "Harden security" --require-approval --budget-limit 20 --receipt
-```
-
-Each subtask gets an isolated git worktree, cross-agent review, sandbox
-validation, and a receipt trail before merge or truthful escalation. This is a
-governed execution path, not a claim that Aragora is a generic autonomous-agent
-runtime.
-
-Current default boundary:
-
-- public and issue-driven paths can draft plans and receipts, but cannot execute code, drive browsers, mutate git, emit consequential webhooks, or write on-chain without an explicit approval record
-- browser execution requires a sandbox backend; host-side browser automation is disabled by default
-- blockchain write requests queue durable chain actions for an admin signer lane instead of signing in the request path
-
-### Add to Your CI Pipeline (1 minute)
+Drop Aragora into CI. A multi-model quorum reviews each PR and posts a grounded
+PR comment — your second opinion, with the same review surface that feeds the
+Decision Receipt path.
 
 ```yaml
 # .github/workflows/aragora-review.yml
 name: Aragora Review
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
 jobs:
   review:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: synaptent/aragora@main
+      - uses: synaptent/aragora@8b600a3a8dbf076f4027ae27f3dcbbf48e75409f
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          post-comment: 'true'
+          emit-receipt: 'true'
 ```
 
-Or generate it automatically: `aragora init --ci github`
-
----
-
-## Five Pillars
-
-Aragora is built on five architectural commitments designed for a world where individual AI agents cannot be trusted with consequential decisions alone.
-
-### 1. SMB-Ready, Enterprise-Grade
-
-Aragora is useful to a 5-person startup on day one and scales to regulated enterprise without rearchitecting. Enterprise features -- OIDC/SAML SSO, MFA, AES-256-GCM encryption, multi-tenant isolation, RBAC with 7 roles and 450+ permission combinations, SOC 2 / GDPR / HIPAA compliance frameworks -- are built in, not bolted on. Security hardening (rate limiting, SSRF protection, path traversal guards, input validation, audit trails) is the default, not a premium tier.
-
-### 2. Leading-Edge Memory and Context
-
-Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 42 registered adapter specs give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
-
-### 3. Control Plane Above Worker Runtimes
-
-Codex, Claude Code, OpenCode, Pi, and similar tools are useful execution
-substrates. Aragora sits above them when the work needs governance: bounded
-delegation, explicit review, receipt generation, merge and publish gates, and
-truthful blocker handling. Provider breadth, connectors, SDKs, and workflow
-surfaces matter because they let Aragora fit into your stack, but they are
-supporting infrastructure, not the primary moat.
-
-### 4. Multi-Agent Robustness
-
-Individual LLMs exhibit persona instability -- their outputs shift based on framing, context, and even prompt ordering. Aragora treats this as a feature: by running Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi, and local models in structured Propose / Critique / Revise debates, the system surfaces disagreements that reveal genuine uncertainty. ELO rankings track agent performance. Calibration scoring (Brier scores) measures prediction accuracy. The Trickster detects hollow consensus where models agree without genuine reasoning. The result: when models with different training data independently converge on an answer, that convergence is meaningful -- and when they disagree, the dissent trail tells you exactly where human judgment is needed.
-
-### 5. Self-Healing and Self-Extending
-
-The Nomic Loop is Aragora's autonomous self-improvement system: agents debate improvements to the codebase, design solutions, implement code, run tests, and verify changes -- with human approval gates and automatic rollback on failure. This is how Aragora grew from a debate engine into a broad governed platform. Current scale is tracked in the auto-regenerated [canonical metrics](docs/METRICS.md). Red-team mode stress-tests the platform's own specs. The Gauntlet runs adversarial attacks against proposed changes. The system hardens itself.
-
----
-
-## Why Aragora?
-
-A single LLM will confidently give you a wrong answer and you won't know it. Research shows that LLM personas are context-dependent, fragile under adversarial pressure, and prone to sycophantic agreement with whoever is asking. [Stanford's taxonomy of LLM reasoning failures](https://arxiv.org/abs/2602.06176) documents systematic breakdowns in formal logic, unfaithful chain-of-thought, and robustness failures under minor prompt variations -- exactly the failure modes that structured adversarial debate is designed to surface. When the decision matters -- hiring, architecture, compliance, strategy -- one model's opinion is insufficient.
-
-Aragora treats each model as an **unreliable witness** and uses structured debate, review, and receipts to extract signal from disagreement instead of hiding it behind a single routed answer:
-
-| What you get | How it works |
-|---|---|
-| **Adversarial Validation** | Models with different training data and blind spots challenge each other's reasoning |
-| **Decision Receipts** | Cryptographic audit trails with evidence chains, dissent tracking, and confidence calibration |
-| **Gauntlet Mode** | Red-team stress-tests for specs, policies, and architectures using adversarial personas |
-| **Calibrated Trust** | ELO rankings and Brier scores track which models are actually reliable on which domains |
-| **Institutional Memory** | Decisions persist across sessions with 4-tier memory and Knowledge Mound (<!-- adpt-count -->42<!-- /adpt-count --> adapters) |
-| **Channel Delivery** | Results route to Slack, Teams, Discord, Telegram, WhatsApp, email, or voice |
-
-### If You're New: How To Read Aragora
-
-Aragora is designed for the moment after an AI recommendation is made, when a buyer, reviewer, or operator asks: "Why should I trust this enough to act?"
-
-Every consequential run is explained through three plain-language elements:
-
-| Term | What it means in practice |
-|---|---|
-| **Receipt** | The record of what was asked, what Aragora recommended, and what should happen next |
-| **Evidence** | The documents, policies, tests, prior decisions, or artifacts Aragora relied on |
-| **Dissent** | The disagreements, residual risks, or open questions that still need human judgment |
-
-The goal is not to make AI sound more certain. The goal is to make the decision legible. A first-time operator should be able to answer four questions in under a minute:
-
-1. What happened?
-2. Why did the system reach that recommendation?
-3. What could still be wrong?
-4. What is the next human action?
-
-That is the purpose of Aragora receipts: not just a log, but a reviewable handoff.
-
----
-
-## Quick Start
-
-### 1. Install and Try It (30 seconds to demo, ~5 minutes for a real PR review)
+The action posts a PR review comment, uploads the machine-readable review
+artifact, and (with `emit-receipt: 'true'` shown above) emits a Decision
+Receipt artifact from a second, independent quorum pass. Anyone — a teammate,
+an auditor, a customer — can then verify that receipt independently with the
+standalone `aragora-verify` verifier (no Aragora dependency):
 
 ```bash
-pip install aragora
+pip install -U 'aragora-verify>=0.1.1'
+aragora-verify decision-receipt.odr.json
 
-# Run a zero-config demo debate — opens receipt in your browser
-aragora quickstart --demo
+# Add a public key when you need issuer authenticity, not just structure/digest:
+aragora-verify decision-receipt.odr.json --pubkey signing-key.pem
 
-# From a clone of the target repo, review the live GitHub PR head
-aragora review-pr 123
+# or build from source (this repo, aragora-verify/):
+pip install ./aragora-verify
 ```
 
-`aragora review-pr` fetches the current remote PR head from GitHub, prints a pass or changes-requested summary, and writes artifacts under `.aragora/review-pr/`. For the first real run, make sure `gh auth status` succeeds and at least one reviewer is available (`claude`, `codex`, or `OPENROUTER_API_KEY`).
+> Use **0.1.1+** (`pip install -U 'aragora-verify>=0.1.1'`): it binds each
+> signature's recorded `key_id` to the key you supply, so a relabeled signer
+> fails as tampering. 0.1.0 lacks that binding — upgrade if you have it.
 
-See [docs/QUICKSTART_DEVELOPER.md](docs/QUICKSTART_DEVELOPER.md) for the 5-minute `review-pr` path, artifact layout, and optional fix loop.
+See the [full Action setup guide](docs/GITHUB_ACTION_SETUP.md#emitting-a-verifiable-decision-receipt)
+for the receipt-specific inputs/outputs, secret-dependent limits (receipts are
+unsigned; reviewer defaults need reachable provider keys), and a committed
+example receipt you can verify right now without running any CI.
 
-### 2. Run Debates and Start the Server
+We run this gate on our own repository — every substantive merge is reviewed
+by a heterogeneous model quorum, dissent preserved, receipts written. The
+evidence, with reproducible queries and caught-bug case studies:
+[**Decision Integrity, Dogfooded**](https://github.com/synaptent/aragora/blob/main/docs/artifacts/2026-07-decision-integrity-dogfooding.md).
+
+## Try it now
+
+Current PyPI package:
 
 ```bash
-# Set at least one API key
-export ANTHROPIC_API_KEY=your-key  # or OPENAI_API_KEY, GEMINI_API_KEY, XAI_API_KEY
-
-# Run a multi-agent debate
-aragora ask "Should we adopt microservices?" --agents anthropic-api,openai-api --rounds 3
-
-# Start the API server
-aragora serve
+pip install -U 'aragora>=2.9.0'
+aragora demo --offline --receipt aragora-demo-receipt.json
+aragora receipt verify aragora-demo-receipt.json
 ```
 
-See [docs/guides/GETTING_STARTED.md](docs/guides/GETTING_STARTED.md) for the complete 5-minute setup.
-
-### 3. Deploy with Docker
+Current source checkout:
 
 ```bash
-# Clone and deploy
-git clone https://github.com/synaptent/aragora && cd aragora
-
-# Production deployment (secrets from AWS Secrets Manager)
-cd deploy/liftmode && ./setup.sh
-
-# Or run directly with Docker Compose
-docker compose -f deploy/docker-compose.yml up -d
+python3 -m pip install -e .
+aragora demo --offline --receipt aragora-demo-receipt.json
+aragora receipt verify aragora-demo-receipt.json
+aragora receipt export aragora-demo-receipt.json --format odr -o receipt.odr.json
 ```
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full deployment options (Docker, Kubernetes, offline mode).
-
-### 4. Develop with the SDK
-
-| Package | Install | Purpose | PyPI |
-|---|---|---|---|
-| `aragora` | `pip install aragora` | Full platform (server, CLI, debate engine) | [v2.8.0](https://pypi.org/project/aragora/) |
-| `aragora-debate` | `pip install aragora-debate` | Standalone debate engine (no server needed) | [v0.2.0](https://pypi.org/project/aragora-debate/) |
-| `aragora-sdk` | `pip install aragora-sdk` | Python client SDK for connecting to aragora | [v2.8.0](https://pypi.org/project/aragora-sdk/) |
-| `@aragora/sdk` | `npm install @aragora/sdk` | TypeScript/Node.js client SDK | — |
-
----
-
-## Core Workflows
-
-### 1. Gauntlet Mode -- Adversarial Stress Testing
-
-Stress-test specs, architectures, and policies before they ship:
+Live review with a provider key:
 
 ```bash
-aragora gauntlet spec.md --input-type spec --profile quick
-aragora gauntlet policy.yaml --input-type policy --persona gdpr
-aragora gauntlet architecture.md --profile thorough --output report.html
+export ANTHROPIC_API_KEY=...        # provider credential for live model review
+aragora review-pr 123               # multi-agent review of a GitHub PR
 ```
 
-| Attack Type | What It Tests |
-|---|---|
-| **Red Team** | Security holes, injection points, auth bypasses |
-| **Devil's Advocate** | Logic flaws, hidden assumptions, edge cases |
-| **Scaling Critic** | Performance bottlenecks, SPOF, thundering herd |
-| **Compliance** | GDPR, HIPAA, SOC 2, AI Act violations |
+## Core workflows
 
-Decision receipts provide cryptographic audit trails for every finding.
+- **AI code review** — heterogeneous-model review of a diff or PR, with severity-tagged findings and a receipt. See [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md).
+- **Gauntlet** — adversarial stress-testing of a claim or spec; attack/defend cycles produce a cryptographic receipt.
+- **Structured debates** — multi-round debate with consensus detection and convergence tracking (`aragora ask`).
 
-### 2. AI Code Review
+## The load-bearing core
 
-Get **multi-model consensus** on your pull requests:
+Aragora is large, but five modules carry the product. Start here:
 
-```bash
-git diff main | aragora review
-aragora review https://github.com/owner/repo/pull/123
-aragora review --demo  # try without API keys
+| Module | Responsibility |
+|--------|----------------|
+| `aragora/debate/` | The Arena orchestrator — runs rounds, detects consensus/convergence. |
+| `aragora/agents/` | Agent implementations (API + CLI), heterogeneous model transport, fallback. |
+| `aragora/gauntlet/` | Decision Receipts: the native record, the portable [ODR](docs/specs/OPEN_DECISION_RECEIPT.md), export and signing. |
+| `aragora/swarm/` | The merge-quorum gate — collects model-review evidence and tiers settlement. |
+| `aragora/server/` | The HTTP/WebSocket API and handlers. |
+
+`aragora-verify/` is a separate verifier project with no Aragora dependency:
+the public verifier for receipts. Everything else under `aragora/` is
+supporting or experimental surface — treat it as such until it's documented
+here.
+
+## Product boundary
+
+Aragora is a **governance and review layer**, not an execution runtime. It is
+not a replacement for worker runtimes like Codex, Claude Code, or OpenCode. Use
+it when review, provenance, and a verifiable decision record matter; keep your
+existing runtimes when raw speed is all you need.
+
+- We do not sell lights-out autonomy as the default story.
+- We do not advance work without evidence, review, and clear terminal states.
+- Consequential effectors are denied by default unless an admin-scoped approval artifact exists; sandboxed backends are mandatory for browser/host effectors.
+
+See [Boundaries and Scope](docs/strategy/BOUNDARIES_AND_SCOPE.md) for the full non-goals ledger.
+
+## From the wedge to the full vision
+
+The CI review gate is the first rung of a deliberate ladder — each step reuses the
+same receipt, memory, and quorum substrate rather than bolting on a new system:
+
+```
+CI review gate ─▶ portable Decision Receipt (ODR) ─▶ crux + calibration in the receipt
+   ─▶ bounded-backlog foreman (unattended work, receipts + stop conditions)
+   ─▶ unified idea→goal→action→orchestration DAG ─▶ organization substrate
 ```
 
-When 3+ independent models with different training data agree on an issue, that convergence is meaningful. Split opinions show where human judgment is needed -- the disagreement is the signal.
+The narrow product you can adopt today and the long-horizon thesis are the same
+system at different stages. The complete scope — every capability, the roadmap, and
+the agent-civilization frontier — is in the [Full Vision postscript](#full-vision),
+annotated by status and gate.
 
-### 3. Structured Debates
+### Anatomy of a Decision Receipt
 
-The debate protocol follows thesis > antithesis > synthesis:
-
-1. **Propose** -- Agents generate initial responses from different perspectives
-2. **Critique** -- Agents challenge each other's proposals with severity scores
-3. **Revise** -- Proposers incorporate valid critiques
-4. **Synthesize** -- Judge combines best elements into a final answer
-
-Configurable consensus: majority, unanimous, judge-based, or none.
-
----
-
-## Architecture
+The receipt is the unit that carries through every stage. One review produces:
 
 ```
-aragora/
-├── debate/         # Core debate engine (210+ modules)
-│   ├── orchestrator.py   # Arena -- main debate loop
-│   ├── consensus.py      # Consensus detection and proofs
-│   ├── convergence.py    # Semantic similarity detection
-│   └── phases/           # Propose, critique, revise, vote, judge
-├── agents/         # 43 registered agent types (CLI, direct API, OpenRouter, local)
-│   ├── api_agents/       # Anthropic, OpenAI, Gemini, Grok, Mistral, OpenRouter
-│   ├── cli_agents.py     # Claude Code, Codex, Gemini CLI, Grok CLI
-│   └── fallback.py       # OpenRouter fallback on quota errors
-├── gauntlet/       # Adversarial stress testing
-├── knowledge/      # Knowledge Mound with 42 registered adapter specs
-├── memory/         # 4-tier memory (fast/medium/slow/glacial)
-├── server/         # 3,386 API operations, 270+ WebSocket event types
-├── pipeline/       # Decision-to-PR generation
-├── genesis/        # Fractal debates, agent evolution
-├── sandbox/        # Docker-based safe execution
-├── rbac/           # Role-based access control (7 roles, 360+ permissions)
-├── compliance/     # SOC 2, GDPR, HIPAA frameworks
-└── workflow/       # DAG-based automation engine
+decision ──▶ model jury (heterogeneous, independent)
+               ├─ proposals / critiques / revisions
+               ├─ dissent trail (+ cruxes when a CruxReceipt is supplied — ODR-4)
+               └─ per-agent ELO + Brier calibration when provenance present — ODR-5
+          ──▶ verdict + confidence
+          ──▶ human attestation (optional; EU AI Act Art. 14)   🔄 #8230
+          ──▶ Ed25519 signature                                 🔄 #8225
+          ──▶ portable ODR JSON  ──▶  aragora-verify <receipt>  ✅ schema+digest+quorum, offline
+          ──▶ Rekor public anchoring (tamper-evidence)          🔄 #8231
 ```
 
-**Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions across 5,078 test files
-(canonical, auto-regenerated numbers: [`docs/METRICS.md`](docs/METRICS.md))
+Today's receipts verify on schema, digest, and quorum consistency offline; per the
+[ODR spec](docs/specs/OPEN_DECISION_RECEIPT.md), cruxes and calibration carry explicit
+*absent markers* unless their source is supplied (ODR-4/5), and public-key signing and
+anchoring are in-flight. See the [proof ladder](#proof-ladder).
 
-### Performance and Costs
+## Find your path
 
-| Metric | Typical Value |
-|---|---|
-| Debate latency (3 agents, 2 rounds) | 30-90 seconds |
-| Token usage per debate | 8,000-25,000 tokens |
-| Estimated cost per debate | $0.05-$0.30 (depends on models) |
-| Concurrent debates supported | 50+ (configurable) |
-| API response time (cached) | < 200ms |
-| Memory tier lookup (fast tier) | < 10ms |
-
-Costs vary by model mix. Use `aragora decide --dry-run` to preview costs before execution.
-
-| Model Mix | Agents | Rounds | Typical Cost |
-|-----------|--------|--------|--------------|
-| Haiku + GPT-4o-mini | 3 | 2 | ~$0.05 |
-| Sonnet + GPT-4o | 3 | 3 | ~$0.15 |
-| Opus + GPT-4 | 5 | 3 | ~$0.30 |
-| Mock agents (demo mode) | Any | Any | $0.00 |
-
-### How Aragora Compares
-
-| Capability | Aragora | LangGraph | CrewAI | AutoGen |
-|---|---|---|---|---|
-| Adversarial debate protocol | Built-in (propose/critique/revise) | Manual | No | No |
-| Decision receipts with audit trail | Cryptographic, SHA-256 | No | No | No |
-| Agent calibration (ELO + Brier) | Built-in | No | No | No |
-| Multi-model consensus | Heterogeneous by design, with adversarial review and receipts | Single-provider | Single-provider | Multi-provider |
-| Gauntlet stress testing | Built-in CLI | No | No | No |
-| Enterprise security (SSO, RBAC, encryption) | Production-ready | No | No | No |
-| Self-improvement (Nomic Loop) | Autonomous with safety gates | No | No | No |
-| Knowledge persistence (42 adapter specs) | 4-tier memory + Knowledge Mound | Custom | Custom | Custom |
-| Channel delivery (Slack, Teams, etc.) | 8 channels built-in | No | No | No |
-
----
-
-## Programmatic Usage
-
-```python
-from aragora import Arena, Environment, DebateProtocol
-from aragora.agents import create_agent
-
-agents = [
-    create_agent("anthropic-api", name="claude", role="proposer"),
-    create_agent("openai-api", name="gpt", role="critic"),
-    create_agent("gemini", name="gemini", role="synthesizer"),
-]
-
-env = Environment(task="Design a distributed cache with LRU eviction")
-protocol = DebateProtocol(rounds=3, consensus="majority")
-arena = Arena(env, agents, protocol)
-result = await arena.run()
-
-print(result.final_answer)
-print(f"Consensus: {result.consensus_reached} ({result.confidence:.0%})")
-```
-
-### Python SDK
-
-```python
-from aragora.client import AragoraClient
-
-client = AragoraClient(base_url="http://localhost:8080")
-debate = client.debates.run(task="Should we adopt microservices?")
-receipt = await client.gauntlet.run_and_wait(input_content="spec.md")
-```
-
-See [docs/SDK_GUIDE.md](docs/SDK_GUIDE.md) for the full API.
-
----
-
-## Channels and Integrations
-
-Aragora delivers debate results to wherever your team works:
-
-| Channel | Status |
-|---|---|
-| Slack | Bot + OAuth |
-| Microsoft Teams | Bot + OAuth |
-| Discord | Interactions API |
-| Telegram | Bot API |
-| WhatsApp | Business API |
-| Email | SMTP + Gmail + Outlook |
-| Voice | TTS integration |
-| Webhooks | Custom delivery |
-
-Results automatically route to the originating channel via bidirectional chat routing.
-
-See [docs/integrations/INTEGRATIONS.md](docs/integrations/INTEGRATIONS.md) for setup.
-
----
-
-## Enterprise Features
-
-| Category | Capabilities |
-|---|---|
-| **Authentication** | OIDC/SAML SSO, MFA (TOTP/HOTP), API key management, SCIM 2.0 |
-| **Multi-Tenancy** | Tenant isolation, resource quotas, usage metering |
-| **Security** | AES-256-GCM encryption, rate limiting, SSRF protection, key rotation |
-| **Compliance** | SOC 2 controls, GDPR support, HIPAA, audit trails |
-| **Observability** | Prometheus metrics, Grafana dashboards, OpenTelemetry tracing |
-| **RBAC** | 7 roles, 360+ permissions, decorator-based enforcement |
-| **Backup** | Incremental backups, retention policies, disaster recovery |
-| **Control Plane** | Agent registry, task scheduler, health monitoring, policy governance |
-
-See [docs/enterprise/ENTERPRISE_FEATURES.md](docs/enterprise/ENTERPRISE_FEATURES.md) for details.
-
----
-
-## Self-Improvement (Nomic Loop)
-
-Aragora includes an autonomous self-improvement system where agents debate and implement improvements to the codebase itself. **Experimental** -- always run in a sandbox with human review.
-
-```bash
-python scripts/run_nomic_with_stream.py run --cycles 3
-python scripts/self_develop.py --goal "Improve test coverage" --require-approval
-```
-
-Safety: automatic backups, protected file checksums, rollback on failure, explicit approval gates for consequential actions, sandbox-required browser execution, and asynchronous chain settlement.
-
----
-
-## Deployment
-
-| Goal | Command | Requirements |
-|------|---------|-------------|
-| **Try it** | `docker compose -f deploy/demo/docker-compose.yml up` | Docker only |
-| **Self-hosted** | `cd deploy/self-hosted && docker compose up -d` | Docker + API key |
-| **Local dev** | `aragora serve --api-port 8080 --ws-port 8765` | Python + API key |
-
-See [deploy/README.md](deploy/README.md) for the full deployment guide.
-
-**API:** REST at `/api/v2/*` | WebSocket at `/ws` | OpenAPI at `/api/openapi`
-
----
-
-## Security
-
-- Ed25519 signature verification for webhooks (Discord, Slack)
-- Rate limiting (IP, token, and endpoint-based)
-- Input validation and content-length enforcement
-- CORS allowlists, security headers, error message sanitization
-- Path traversal protection, upload validation with magic byte checking
-- WebSocket message limits (64KB), debate timeouts, backpressure control
-
-See [docs/enterprise/SECURITY.md](docs/enterprise/SECURITY.md) and [docs/enterprise/COMPLIANCE.md](docs/enterprise/COMPLIANCE.md).
-
----
+- **Developer** — [Quickstart](docs/quickstart.md) → `aragora review-pr` → [CLI Reference](docs/CLI_REFERENCE.md) · [SDK Guide](docs/SDK_GUIDE.md)
+- **Auditor / reviewer** — [Cold Reviewer Guide](docs/COLD_REVIEWER_GUIDE.md) → [Open Decision Receipt spec](docs/specs/OPEN_DECISION_RECEIPT.md) → `aragora-verify`
+- **Founder / operator** — the wedge above → [proof ladder](#proof-ladder) → [Full Vision](#full-vision)
+- **Compliance buyer** — [Enterprise features](docs/enterprise/ENTERPRISE_FEATURES.md) → EU AI Act / SOC 2 status in [honest current state](#honest-current-state)
+- **Agent / tool builder** — the [ODR](docs/specs/OPEN_DECISION_RECEIPT.md) as the external contract → MCP tools → [API Reference](docs/api/API_REFERENCE.md)
 
 ## Documentation
 
-| Need | Where |
+- [Quickstart](docs/quickstart.md) · [Cold Reviewer Guide](docs/COLD_REVIEWER_GUIDE.md) · [CLI Reference](docs/CLI_REFERENCE.md)
+- [Open Decision Receipt spec](docs/specs/OPEN_DECISION_RECEIPT.md) · [SDK Guide](docs/SDK_GUIDE.md) · [API Reference](docs/api/API_REFERENCE.md)
+- [Feature status](docs/STATUS.md) · [Enterprise features](docs/enterprise/ENTERPRISE_FEATURES.md) · [Architecture deep-dive](docs/EXTENDED_README.md)
+- [Inspiration and credits](docs/reference/CREDITS.md)
+
+## Security
+
+Secrets load from AWS Secrets Manager in production (never standing env keys);
+local development uses a gitignored `.env`. See the
+[security overview](docs/enterprise/SECURITY.md),
+[compliance overview](docs/enterprise/COMPLIANCE.md), and
+[deployment guide](docs/deployment/DEPLOYMENT.md).
+
+## Contributing & License
+
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). MIT licensed
+(see [LICENSE](LICENSE)).
+
+---
+
+<a id="full-vision"></a>
+
+## Postscript — The Full Vision
+
+> The sections above are what Aragora **is today** and how to use it. What follows
+> is the **complete intended scope** — the thesis, the whole capability surface, the
+> roadmap, and the long-horizon vision — recorded in one place so that anyone (human
+> or agent) who reads to the end sees exactly how large this project means to become.
+> It is deliberately dense.
+>
+> **Read this honestly.** Markers: ✅ shipped/working · 🟡 built but not productized ·
+> 🔄 in-flight · 🔮 designed or aspirational. Per our
+> [commercial discipline](docs/COMMERCIAL_OVERVIEW.md), *external claims stay narrower
+> than this roadmap and tied to measured proof.* Canonical metrics live in
+> [`docs/METRICS.md`](docs/METRICS.md); the candid current-state ledger is
+> [`docs/HONEST_ASSESSMENT.md`](docs/HONEST_ASSESSMENT.md). Where a number is contested
+> across docs it is rounded here on purpose. Every major claim below carries a proof
+> link, a status marker, or an explicit aspirational label — start with the proof ladder.
+
+<a id="proof-ladder"></a>
+
+### Proof ladder — how to verify every claim here
+
+| Claim class | Canonical source / gate |
 |---|---|
-| Developer quickstart | [QUICKSTART_DEVELOPER.md](docs/QUICKSTART_DEVELOPER.md) |
-| First-time setup | [GETTING_STARTED.md](docs/guides/GETTING_STARTED.md) |
-| API reference | [API_REFERENCE.md](docs/api/API_REFERENCE.md) |
-| SDK guide | [SDK_GUIDE.md](docs/SDK_GUIDE.md) |
-| Enterprise features | [ENTERPRISE_FEATURES.md](docs/enterprise/ENTERPRISE_FEATURES.md) |
-| Gauntlet guide | [GAUNTLET.md](docs/debate/GAUNTLET.md) |
-| Agent catalog | [AGENTS.md](docs/debate/AGENTS.md) |
-| Feature discovery | [FEATURE_DISCOVERY.md](docs/FEATURE_DISCOVERY.md) |
-| Extended README | [EXTENDED_README.md](docs/EXTENDED_README.md) |
-| Full index | [INDEX.md](docs/reference/INDEX.md) |
+| Scale & metrics | [`docs/METRICS.md`](docs/METRICS.md) — `python scripts/regenerate_metrics.py --check` fails CI on >0.5% drift |
+| What's real vs aspirational | [`docs/HONEST_ASSESSMENT.md`](docs/HONEST_ASSESSMENT.md) |
+| Receipt format (the external contract) | [Open Decision Receipt spec](docs/specs/OPEN_DECISION_RECEIPT.md) |
+| Decision-semantics roadmap | ODR spine epic [#8223](https://github.com/synaptent/aragora/issues/8223); ODR-1..7 → [#8224](https://github.com/synaptent/aragora/issues/8224)/[#8225](https://github.com/synaptent/aragora/issues/8225)/[#8226](https://github.com/synaptent/aragora/issues/8226)/[#8227](https://github.com/synaptent/aragora/issues/8227)/[#8229](https://github.com/synaptent/aragora/issues/8229)/[#8230](https://github.com/synaptent/aragora/issues/8230)/[#8231](https://github.com/synaptent/aragora/issues/8231) |
+| Jul 2026 durability capture / outsider-verifiable claims | [Durable strategy capture](docs/strategy/2026-07-05-durable-strategy-capture.md); executable claims manifest [`outsider_verifiable_claims.yaml`](docs/status/claims/outsider_verifiable_claims.yaml); parent capture issue [#8856](https://github.com/synaptent/aragora/issues/8856) |
+| Autonomy truth | B0 benchmark [`docs/status/B0_BENCHMARK_TRUTH_STATUS.md`](docs/status/B0_BENCHMARK_TRUTH_STATUS.md) |
+| Enterprise / compliance | [GA checklist](docs/GA_CHECKLIST.md) (SOC 2 / pentest gate) · [Enterprise features](docs/enterprise/ENTERPRISE_FEATURES.md) |
+| Frontier work is bounded | the proof-first Foreman gate + capability checkpoints CP-1..5 (below) |
 
----
+### The thesis — Decision Integrity
 
-## Inspiration and Citations
+**The core claim, in one sentence: heterogeneous frontier models adversarially
+review a decision; disagreement is preserved, not averaged away; the output is a
+signed, dissent-preserving Decision Receipt an auditor can verify offline without
+trusting Aragora.**
 
-Aragora synthesizes ideas from these open-source projects:
+Aragora orchestrates **heterogeneous, adversarial multi-model debate** to vet,
+challenge, and audit consequential decisions *before* they ship — and emits
+cryptographic proof that the decision was rigorously examined. This is a distinct
+category from cooperative agent orchestration (LangGraph, CrewAI, AutoGen), from
+single-provider agent SDKs, and from post-hoc AI observability: those coordinate
+graphs or monitor behavior after the fact; Aragora improves decision *quality*
+before commit and produces the audit trail as a byproduct.
+*(docs/WHY_ARAGORA.md, docs/COMPARISON_MATRIX.md)*
 
-- **[Stanford Generative Agents](https://github.com/joonspk-research/generative_agents)** -- Memory + reflection architecture
-- **[ChatArena](https://github.com/chatarena/chatarena)** -- Multi-agent interaction environments
-- **[LLM Multi-Agent Debate](https://github.com/composable-models/llm_multiagent_debate)** -- ICML 2024 consensus mechanisms
-- **[ai-counsel](https://github.com/AI-Counsel/ai-counsel)** -- Semantic convergence detection (MIT)
-- **[DebateLLM](https://github.com/Tsinghua-MARS-Lab/DebateLLM)** -- Agreement intensity modulation (Apache 2.0)
-- **[claude-flow](https://github.com/ruvnet/claude-flow)** -- Adaptive topology switching (MIT)
-- **[LLM Reasoning Failures](https://arxiv.org/abs/2602.06176)** -- Stanford taxonomy of systematic reasoning breakdowns (Song et al. 2026)
+**Why a single model isn't enough.** LLMs exhibit correlated failures (shared
+training data and RLHF biases), sycophantic agreement (confidence uncorrelated with
+accuracy), and persona instability (minor prompt changes flip answers). Treat each
+model as an *unreliable witness* and extract signal from where independent witnesses
+disagree. Clinical triage, financial risk, legal review, and architecture decisions
+cannot rest on "probably right." The moat: no funded competitor combines structured
+adversarial multi-agent debate with portable, verifiable decision receipts.
+*(docs/WHY_ARAGORA.md, docs/HONEST_ASSESSMENT.md)*
 
-See the full attribution table in [docs/reference/CREDITS.md](docs/reference/CREDITS.md).
+**Why this is not generic orchestration:**
 
----
+| | Cooperative orchestration (LangGraph / CrewAI / AutoGen) | Aragora |
+|---|---|---|
+| Agent disagreement | a bug to resolve | the signal — preserved as dissent + cruxes |
+| Primary output | the completed task | a verifiable Decision Receipt |
+| Model independence | often single-provider | heterogeneous providers by design |
+| When evidence is thin | proceeds | stops truthfully; the receipt says so |
+| Delegation | open-ended | bounded; approval artifacts + sandboxed effectors |
 
-## Contributing
+*(docs/strategy/BOUNDARIES_AND_SCOPE.md, docs/COMPARISON_MATRIX.md)*
 
-Contributions welcome. Areas of interest:
+### The Five Pillars *(product framing — docs/EXTENDED_README.md)*
 
-- Additional agent backends
-- Debate visualization
-- Benchmark datasets for agent evaluation
-- Lean 4 theorem proving integration
+1. **SMB-ready, enterprise-grade.** Works for a 5-person startup on day one; scales
+   to regulated enterprise without rearchitecting. SSO/MFA, encryption, RBAC, and
+   compliance frameworks are built-in defaults, not premium tiers.
+2. **Leading-edge memory & context.** 4-tier Continuum Memory (fast/medium/slow/
+   glacial) + Knowledge Mound give every debate institutional history and evidence
+   provenance; RLM (Recursive Language Models) sustains coherence over long sessions
+   and large corpora where single models degrade.
+3. **Extensible & modular.** 12+ model providers, broad connectors, Python + TypeScript
+   SDKs, a large REST/WebSocket API surface, and a workflow-template library.
+4. **Multi-agent robustness.** Claude, GPT, Gemini, Grok, Mistral, DeepSeek run in
+   structured Propose/Critique/Revise debates with multiple consensus modes; ELO and
+   Brier calibration track per-domain agent quality; the Trickster flags hollow
+   consensus. Output is higher-quality and lower-bias than any single model, with a
+   complete dissent trail.
+5. **Self-healing & self-extending.** The Nomic Loop lets the platform debate, design,
+   implement, and verify improvements to *itself*, with human approval gates and
+   automatic rollback.
 
-## License
+### The long arc
 
-MIT
+The full long-horizon vision — the five-stage **Tool → Organization Substrate**
+ladder and the eight foundational substrate pillars — lives in
+[`docs/vision/MAXIMALIST_VISION.md`](docs/vision/MAXIMALIST_VISION.md), together with
+the staged-integration criteria that govern when each piece activates. The near-term
+focus narrows hard to what is already earned and externally provable: **cryptographic
+receipts & auditability** and **reliable autonomous execution** on bounded backlogs.
+The vision is retained in full; the README carries only the claim the code currently
+proves. *(docs/CANONICAL_GOALS.md, docs/vision/MAXIMALIST_VISION.md)*
 
----
+### The complete capability surface
 
-*The name "aragora" evokes the Greek agora -- the public assembly where citizens debated and reached collective decisions through reasoned discourse.*
+<!-- metrics:begin readme-scale -->
+> Scale (canonical counts in [`docs/METRICS.md`](docs/METRICS.md), rounded):
+> **~4,300 Python files · ~1.9M LOC · 140+ top-level modules · 200,000+ test
+> functions across ~5,500 files · 3,205 API operations across 2,912 paths ·
+> 35+ allowlisted agent types across 12+ providers · 41 Knowledge Mound adapter specs
+> (46 files) · 360+ RBAC permissions · Python + TypeScript SDKs · v2.10.0.**
+> (Practical real-time debate uses 2–6 agents; the value is *heterogeneity*, not raw
+> count — see docs/HONEST_ASSESSMENT.md.)
+<!-- metrics:end -->
+
+**Core debate (✅).** Arena engine orchestrates Propose/Critique/Revise/Vote phases,
+extended multi-round debates, semantic convergence detection, ELO-based team
+selection with continuous calibration. Consensus modes: majority, unanimous, weighted/
+judge, byzantine, and Prover-Estimator. Enhancements: Trickster (hollow-consensus
+detection), Rhetorical Observer, Security Barrier (telemetry redaction), Calibration
+Tracker, Performance Monitor, Graph/Matrix topologies, breakpoints (pause/resume).
+
+**Agents (✅).** API providers: Anthropic, OpenAI, Google Gemini, Mistral (Large/
+Codestral), xAI Grok, OpenRouter (DeepSeek/Llama/Qwen/Yi/Kimi), local Ollama/LM Studio.
+CLI agents: Claude, Codex, Gemini, Grok. Resilience: Airlock circuit breaker,
+automatic OpenRouter fallback on 429, session circuit-breaker (auth-state pinning),
+per-provider rate limiting, unified error hierarchy.
+
+**Memory & learning (✅).** Continuum Memory (4 tiers, atomic cross-system writes via
+Memory Coordinator); Unified Memory Gateway fanning out across Continuum, Knowledge
+Mound, Supermemory, and claude-mem with a surprise-driven RetentionGate (Titans/MIRAS)
+and SHA-256 + Jaccard dedup; RLM context-as-REPL-variables (not prompt compression);
+ELO ratings, tournaments, leaderboards, performance-based selection.
+
+**Knowledge management (✅, Phase A2).** Knowledge Mound: semantic vector search,
+graph store with lineage, domain taxonomy, visibility tiers (private→workspace→org→
+public→system), time-bounded access grants, cross-workspace federation. Auto-curation:
+dedup, contradiction detection, confidence decay, RBAC governance, ResilientPostgres
+store, SLO alerting. 40+ registered adapters auto-built from Arena subsystems; bridges
+(MetaLearner, Evidence, Pattern); belief networks with claim provenance and cruxes.
+
+**Enterprise & security (✅, production-ready).** OIDC/SAML SSO, TOTP/HOTP MFA, SCIM 2.0
+(Okta/Azure/OneLogin), scoped API keys; RBAC v2 (360+ permissions, 7 roles, hierarchy,
+decorators, middleware, audit); multi-tenancy (SQL auto-filtering, quotas, metering);
+AES-256-GCM field encryption with Cloud KMS + key rotation, PII anonymization, GDPR
+erasure; circuit breakers, rate limiting, SSRF protection, security headers; incremental
+backup/DR with drills.
+
+**Compliance & governance (mixed).** EU AI Act artifact generation for Articles 9/12/13/
+14/15 with risk classification (🔄, bundle ~90/100 complete; enforcement deadline **Aug 2,
+2026**); SOC 2 Type II controls implemented (🔄 ~98%; **blocker: external penetration test
+not yet commissioned** — *not certified*); GDPR DSAR/erasure/consent/retention (✅);
+HIPAA field encryption, Safe Harbor de-identification, breach-notification workflows (✅
+controls); SOX-oriented audit profiles (✅). *(docs/HONEST_ASSESSMENT.md, docs/GA_CHECKLIST.md)*
+
+**Integrations & connectors (✅, 50+).** Chat: Slack, Discord, Teams, Google Chat,
+Telegram, WhatsApp (with TTS/voice). Streaming: Kafka, RabbitMQ (DLQ, bidirectional).
+Enterprise data: SharePoint, Confluence, Notion, PostgreSQL/MongoDB/MySQL/SQL Server/
+Snowflake (CDC), Salesforce, HubSpot, Zendesk, Jira. Sources: GitHub, ArXiv, Wikipedia,
+SEC filings, HackerNews, Reddit, Twitter/X. Email/voice: Gmail + Outlook sync, Twilio
+phone debates, SMTP. Healthcare: HL7v2, FHIR. Bidirectional routing returns results to
+the originating platform.
+
+**Observability & control plane (✅).** Prometheus custom metrics, Grafana dashboards,
+OpenTelemetry tracing (OTLP, multiple backends), structured JSON logs with PII redaction
+and correlation IDs; agent registry with heartbeats, priority scheduler, liveness/
+readiness probes; policy governance (conflict detection, Redis cache, background sync,
+versioned rollback). 1,500+ control-plane tests.
+
+**Advanced capabilities.** Pulse trending-topic ingestion (✅); Gauntlet adversarial
+red-team + cryptographic receipts (✅); Swarm orchestration — bounded work orders,
+worker launcher into managed worktrees, reconciler, leases, salvage queue (✅); Inbox
+Trust Wedge — Gmail → debate → signed receipt → approval → execute (✅ CLI, 🔮 web GUI
+for retest); Live Explainability, structural argument verification, outcome-feedback
+loop (✅); Workflow Engine — DAG automation with 50+ templates (✅); Prompt Engine —
+vague prompt → validated spec via debate (✅); Computer-Use bridge + OpenClaw
+compatibility (🔄).
+
+**SDK & ecosystem (✅/🔄).** `aragora-sdk` (blessed Python client), full `aragora`
+package, `@aragora/sdk` (TypeScript); MCP server exposing a large tool surface for
+Claude integration with reasoning-trace capture; extensible plugin/marketplace
+architecture (🔮 no public marketplace endpoint yet).
+
+**Deployment & HA (✅).** Docker Compose (dev/prod), Kubernetes Helm chart with
+multi-region values (US/EU/APAC data residency), HPA/PDB/network policies, External
+Secrets Operator, cert-manager; Terraform IaC; SQLite (dev) / PostgreSQL (prod) with
+pooling; unified TTL cache + Redis cluster failover; incremental backup to local/S3/GCS,
+offline/air-gapped mode.
+
+**Built but not productized (🟡).** Real code in-tree, little or no public surface —
+tracked openly, not hidden *(docs/FEATURE_GAP_LIST.md dormant table)*:
+- **Crux detector** — engine + operator CLI complete; no public API/SDK or crux-set-in-receipt yet ([#8227](https://github.com/synaptent/aragora/issues/8227), ODR-4).
+- **Pareto provider router** — optimizer + pricing DB shipped; the loop doesn't yet route by decision stakes or record rationale ([#8233](https://github.com/synaptent/aragora/issues/8233)).
+- **Tamper-evident audit trail** — trail verifies checksums; external-witness append-only anchoring is building (TET spec; Rekor [#8231](https://github.com/synaptent/aragora/issues/8231)).
+- **ERC-8004 / blockchain** — registries + handlers in-tree, deployed to no network; **de-scoped** by the steering-leverage filter (the anchoring need is served by Rekor instead).
+- **Skills marketplace** — code + seed catalog exist; no public endpoint or third-party content.
+
+### Vertical specialists *(docs/verticals/, 🔄 guides exist; packaged offerings 🔮)*
+
+- **Healthcare** — FHIR R4 (Epic/Cerner via SMART-on-FHIR), drug-interaction and
+  contraindication analysis, treatment-pathway debate, HIPAA-compliant receipts.
+- **Financial services** — credit underwriting, fraud investigation, investment-committee
+  review, stress-testing, audit-grade dissent trails (SOX/SOC 2 workflows).
+- **Legal** — clause-by-clause adversarial contract analysis, counterparty modeling,
+  missing-clause detection, M&A due diligence (6 concurrent review streams), litigation
+  risk.
+- **Accounting** — loan risk, equity valuation, deal-structure analysis, materiality
+  assessment.
+
+### Self-improvement — the Nomic Loop & the flywheel
+
+**The Nomic Loop (✅, 233+ tests).** A five-phase autonomous self-improvement cycle:
+**Context → Debate → Design → Implement → Verify.** Heterogeneous agents propose and
+argue improvements, architect a solution, generate code in isolated worktrees, then
+gate on automated tests + cross-agent review + merge arbiter + Knowledge Mound learning.
+Infrastructure: TaskDecomposer, HardenedOrchestrator (default since Feb 2026),
+BranchCoordinator, MetaPlanner, AutonomousOrchestrator. Safety: prompt-injection
+scanning, canary tokens, sandbox execution, review-gate scoring, automatic rollback,
+protected-file checksums, human approval gates. CLI: `aragora self-improve "<goal>"`,
+`scripts/self_develop.py`, `scripts/nomic_staged.py`. *(CLAUDE.md, docs/plans/SELF_IMPROVING_ARAGORA.md)*
+
+**The flywheel.** Aragora uses Aragora to improve Aragora: debates over tradeoffs →
+receipts capturing the reasoning → Knowledge Mound learning → better-calibrated next
+debate. As the system fixes its own bugs and ships its own features, the verifiable
+corpus and the agent-calibration data grow — and that calibration data is the moat. The
+strategy-mission cadence that produced *this very README* gated its own merge through
+Aragora's quorum→receipt machinery — the flywheel, demonstrated.
+
+**The honest version is stronger than the success story.** In June 2026 the gate was
+so genuinely adversarial that it deadlocked our own factory for weeks: adversarial
+review never returned empty, repair commits reset review budgets, dissent acted as a
+post-hoc veto, and a 240+-PR backlog piled up against a gate that refused to wave
+anything through. The receipts for that deadlock — and for the settlement machinery
+that fixed it (tiered gates, severity-gated dissent, head-bound evidence, the
+adjudicator) — are in this repo's history. Nobody else has published measured failure
+modes of adversarial review at this scale, because nobody else has run one this long.
+That scar tissue *is* the dogfood evidence.
+
+### The frontier — Agent Civilization Substrate *(🔮 designed; gated, see below)*
+
+Beyond human-operated orgs, Aragora is designed as a substrate for consequential
+multi-agent coordination where **reputation is earned against external ground truth,
+not closed-loop agreement.** Six tracks (AGT-01..06): activate the CruxDetector in live
+debates; an A2A consumer surface where agents register/discover/transact/consume
+receipts; Manifold Markets integration with rolling Brier scoring; synthetic GitHub
+markets (predict PR merges / issue closures with verifiable resolution); ERC-8004
+reputation flow (claims → stakes → resolution → reputation deltas → dispatch
+eligibility — *contracts written, no mainnet; de-scoped June 2026 in favor of Sigstore
+Rekor anchoring*); and a Verifiable-Improvements-per-Agent-Hour (VIAH) self-justification
+metric. *(docs/plans/ agent-civilization designs)*
+
+- **Crux Finder (✅ MVP / 🔮 shaping).** Consensus mode `crux_finder` surfaces the 3–5
+  load-bearing disagreements where flipping a belief flips the conclusion; signed
+  CruxReceipts, `aragora crux "<question>"`. Crux-shaping prompts and per-round
+  claim targeting are deferred pending dogfood runs.
+- **Epistemic CI / Decision Integrity Core (🔮 DIC-13..22).** Extend receipts beyond
+  debates to *code and organizational claims*: executable claims (evidence + freshness
+  SLAs + verification contracts), proof-carrying code units that fail closed when
+  assumptions decay, epistemic decay signals proposing bounded repair, and a read-only
+  organizational truth map. Initial shape is manifest-based and read-only.
+- **Trust-Compound plan (🔄 TCP-1..7).** Make the large surface *legible without
+  deletion*: a canonical-metrics manifest verified in CI (so a claim like "46 adapters"
+  passes or fails the build), packaging clarity, hotspot-file splits, wire/showcase/
+  shelve classification per subsystem, generated artifacts as build outputs, this README
+  rewrite, and public CruxSets at `aragora.ai/cruxes`.
+
+### Discipline — capability checkpoints (CP-1..5)
+
+The vision is **bounded, not open-ended.** Booster-stage investment in the frontier must
+graduate through checkpoints, each ~4 weeks apart: CP-1 stable self-healing soaks → CP-2
+CruxDetector driving real follow-ups → CP-3 stable prediction-calibration curves → CP-4
+a reputation delta changing real dispatch → CP-5 positive VIAH trend without an operator-
+rescue spike. **Failing a checkpoint downscales the next investment; it does not kill the
+vision.** Frontier (AGT-*/DIC-*) work never carries `boss-ready` until the proof-first
+gate explicitly opens the upper tranche. *(docs/plans/ trust-compound + checkpoints)*
+
+### Roadmap — priority-gated *(docs/FEATURE_GAP_LIST.md, docs/CANONICAL_GOALS.md)*
+
+**Current execution spine — Open Decision Receipt** (epic [#8223](https://github.com/synaptent/aragora/issues/8223); supersedes the P0/P1 ordering below): **ODR-1** vendor-neutral receipt profile (JSON Schema + JCS) [#8224](https://github.com/synaptent/aragora/issues/8224) → **ODR-2** Ed25519 public-key signing [#8225](https://github.com/synaptent/aragora/issues/8225) → **ODR-3** `aragora-verify` standalone offline verifier + `/api/receipts/verify` [#8226](https://github.com/synaptent/aragora/issues/8226) → **ODR-4** expose the crux finder [#8227](https://github.com/synaptent/aragora/issues/8227) → **ODR-5** calibration report + calibrated confidence [#8229](https://github.com/synaptent/aragora/issues/8229) → **ODR-6** human-oversight attestation + EU AI Act Art. 14 pack [#8230](https://github.com/synaptent/aragora/issues/8230) → **ODR-7** Sigstore Rekor public anchoring [#8231](https://github.com/synaptent/aragora/issues/8231). (1–3 are the spine: a receipt a stranger can verify; 4–6 enrich the payload; 7 makes anchoring public.)
+
+- **P0 — PMF blockers:** truthful live founder loop (✅ 5/5 proved); smart provider
+  routing (✅ optimizer + runtime; 🔄 decision-stakes routing); complete repeatable user
+  journey (🔄); KM reads enrich debate context (🔄 live proof pending).
+- **P1 — value-prop proof (Q2 2026):** OpenClaw end-to-end (🔄); 5 functional frontend
+  paths (🔄); 10+ agent coordinated debates (🔄 scale testing); agent-first beta via REST
+  (✅ 12-runner fleet); GitHub Actions pre-merge gate (🔄); public demo at aragora.ai/demo
+  (🔄); EU AI Act bundle (🔄 ~90/100); <10-min onboarding (🔄).
+- **P2 — hardening & enterprise (post-PMF):** external penetration test (🔮 vendor
+  shortlisted); Decision-Integrity UI Workbench (🔄 partial); SOC 2 Type II audit (🔄
+  ~98% controls); Enterprise Communication Hub (✅ shipped, 🔄 trigger validation).
+- **P3 — scale & revenue (Q3–Q4 2026, de-scoped until PMF):** cloud marketplace listings;
+  vertical packages; Skills Marketplace pilot; on-prem productization; data residency /
+  international.
+- **P4 — strategic evolution (2026+):** ✅ Prover-Estimator, cross-verification, truth-
+  ratio weighting, anti-sycophancy, prompt-to-spec, Obsidian sync; 🔮 Dialectical Runtime
+  synthesis (DIC-23..28), market-resolution mechanism, meta-improver for protocols.
+- **P5 — federation (🔮):** distributed debates across orgs, cross-org knowledge sync.
+
+### Focus strategy — depth over breadth *(docs/FOCUS.md)*
+
+The codebase is explicitly tiered for investment: **Tier 1 defensible core** (~17% of
+files, ~100% of unique value: debate engine, Gauntlet, Knowledge Mound, ELO/calibration,
+Continuum memory, belief networks, verification, explainability) — invest, harden, make
+receipts the primary output; **Tier 2 essential infrastructure** (agents, API, storage,
+CLI — maintain, prune the oversized server surface); **Tier 3 enterprise** (RBAC, audit,
+billing, compliance — keep, don't differentiate); **Tier 4 connectors** (commodity —
+sufficient as-is); **Tier 5 scope creep** (some workflow/RLM/blockchain/computer-use/
+canvas — move to `contrib/` or shelve until customer demand). The standalone
+`aragora-debate` library extracts Tier 1 so anyone can run an adversarial debate in ~10
+lines with zero infra dependencies.
+
+<a id="honest-current-state"></a>
+
+### Honest current state *(docs/HONEST_ASSESSMENT.md, docs/GA_CHECKLIST.md)*
+
+**Real and working:** the debate engine (genuine multi-agent debates against live LLM
+APIs), multiple consensus modes, hollow-consensus detection, cryptographic receipts with
+multi-format export, ELO rankings, Continuum memory, the fully-wired self-improvement
+infrastructure, enterprise auth/encryption/key-rotation, and a very large test suite.
+GA readiness is tracked at **~98%** (58/59 checklist items).
+
+**Honest qualifications:** the B0 benchmark reports 100% verified-truth on the strict
+set, with a separate, lower legacy full-corpus metric tracked alongside it (see
+[`docs/status/B0_BENCHMARK_TRUTH_STATUS.md`](docs/status/B0_BENCHMARK_TRUTH_STATUS.md));
+**SOC 2 Type II is not certified** (the one open GA
+blocker is the external penetration test); semantic convergence degrades to TF-IDF/Jaccard
+without the optional `sentence-transformers` dependency; "blockchain" receipts are SHA-256
+hashing, *not* an on-chain immutable ledger; and practical real-time parallelism is 2–6
+agents, not the larger allowlisted count — the value is heterogeneity. External positioning
+should remain **narrower** than this roadmap and anchored to measured proof.
+
+### North stars *(docs/CANONICAL_GOALS.md)*
+
+1. A vague request becomes a reviewable, executable spec in minutes.
+2. A bounded backlog runs unattended with clear receipts, stop conditions, and minimal rescue.
+3. Any decision is inspectable from one-line summary down to evidence and provenance.
+4. Shared memory improves future work without collapsing trust boundaries.
+5. Important claims and cruxes stay linked to evidence, receipts, freshness, and delayed settlement.
+6. Aragora evolves tool → teammate → foreman → chief of staff → org substrate on one coherent runtime.
+7. Agents and humans participate as co-equal consumers with portable reputation tied to external truth oracles.

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from aragora.metrics.viah import (
+from aragora.evaluation.viah import (
     VIAH_SNAPSHOT_ENTRY_TYPE,
     VIAH_TREND_FLAG,
     ViahCoefficients,

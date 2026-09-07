@@ -296,7 +296,7 @@ The MCP server supports multiple transports:
 
 **Rate limit errors?** Add `OPENROUTER_API_KEY` for automatic fallback.
 
-**Import errors?** Install optional dependencies: `pip install aragora[mcp]`
+**Import errors?** Reinstall the base package: `pip install aragora`
 
 **Server won't start?** Check: `python -c "from aragora.mcp.server import main; main()"` for error output.
 

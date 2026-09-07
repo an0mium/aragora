@@ -18,10 +18,12 @@ from aragora.cli.commands.review_queue import (
     LARGE_DIFF_THRESHOLD,
     MODEL_REVIEW_QUEUE_CAP,
     PARKED_LABELS,
+    PROXY_GROUNDING_DISCLOSURE,
     QueueItem,
     ReviewPacket,
     _build_merge_authorization_packet,
     _build_model_review_quorum,
+    _lint_evidence_comment,
     _build_packet,
     _build_queue,
     _classify_pr,
@@ -39,6 +41,7 @@ from aragora.cli.commands.review_queue import (
     _is_merge_quorum_check,
     _parse_pr_number,
     _record_external_settlement,
+    _render_merge_authorization_packet,
     _render_packet,
     _requested_action,
     _settle_packet,
@@ -48,7 +51,12 @@ from aragora.cli.commands.review_queue import (
     add_review_queue_parser,
     cmd_review_queue,
 )
+from aragora.cli.commands.review_queue_unstable import (
+    attach_verified_cancellation_contexts as _attach_verified_cancellation_contexts,
+    verified_unstable_non_required_cancellation_receipt as _verified_unstable_non_required_cancellation_receipt,
+)
 from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
+from aragora.cli.commands.review_queue_transport import _GhError as _RQGhError
 from aragora.review import (
     EvidenceKind,
     EvidenceRef,
@@ -82,6 +90,7 @@ def _make_pr(
     files: list[str] | None = None,
     author: str = "an0mium",
     body: str = "",
+    merge_state_status: str = "CLEAN",
 ) -> dict[str, Any]:
     """Build a synthetic gh-pr-list-style payload."""
     return {
@@ -96,6 +105,7 @@ def _make_pr(
         "baseRefOid": "basesha0001",
         "isDraft": is_draft,
         "mergeable": mergeable,
+        "mergeStateStatus": merge_state_status,
         "reviewDecision": review_decision,
         "labels": [{"name": lab} for lab in (labels or [])],
         "author": {"login": author},
@@ -233,6 +243,14 @@ def _codex_openai_comment(
     return comment
 
 
+def _codex_openai_review_comment(
+    *,
+    body: str = "Verdict: approve.\nFocused adversarial dogfood passed.",
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    return _codex_openai_comment(heading="## Codex review", body=body, created_at=created_at)
+
+
 def _executed_protocol(*, dissent: bool = False) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "status": EXECUTED_PROTOCOL_STATUS,
@@ -256,6 +274,32 @@ def _executed_protocol(*, dissent: bool = False) -> dict[str, Any]:
             }
         ]
     return payload
+
+
+def _model_review_comment(model: str) -> dict[str, Any]:
+    """A current-head model-review comment attributed to ``model``'s family.
+
+    The heading names the model and contains the recognized "independent model
+    review" token, so ``_model_review_signals_from_comments`` counts it as a
+    distinct family signal (e.g. ``deepseek``, ``qwen``, ``grok``).
+    """
+    return {
+        "author": {"login": "an0mium"},
+        "body": f"## {model} independent model review\nVerdict: approve.",
+    }
+
+
+def _family_dogfood_comment(model: str) -> dict[str, Any]:
+    """Adversarial-dogfood evidence attributed to ``model``'s family.
+
+    Used to satisfy the Tier 1+ dogfood requirement without smuggling in an
+    extra Western *signal* (the dogfood family is counted, so picking a
+    non-Western family keeps the jurisdiction tests honest).
+    """
+    return {
+        "author": {"login": "an0mium"},
+        "body": f"## Cross-author adversarial dogfood ({model})\n6/6 pass",
+    }
 
 
 # --- _summarize_checks -----------------------------------------------------
@@ -733,6 +777,558 @@ class TestSummarizeChecks:
         assert not has_pending
 
 
+class TestUnstableCancellationReceipt:
+    def test_classifier_lives_in_focused_helper(self) -> None:
+        assert _verified_unstable_non_required_cancellation_receipt.__module__ == (
+            "aragora.cli.commands.review_queue_unstable"
+        )
+
+    def test_attach_contexts_records_receipt(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ignored = [{"workflow": "Docs Consistency", "conclusion": "CANCELLED"}]
+        receipt = {"ignored_contexts": ignored}
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue_unstable.verified_unstable_non_required_cancellation_receipt",
+            lambda **_kwargs: receipt,
+        )
+        surfaces: dict[str, Any] = {}
+
+        contexts = _attach_verified_cancellation_contexts(
+            pr={}, pr_number=9411, repo_override="synaptent/aragora", check_surfaces=surfaces
+        )
+
+        assert contexts == ignored
+        assert surfaces["unstable_non_required_cancellation_receipt"] == receipt
+
+    def test_attach_contexts_returns_empty_without_receipt(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue_unstable.verified_unstable_non_required_cancellation_receipt",
+            lambda **_kwargs: {},
+        )
+        surfaces: dict[str, Any] = {}
+
+        contexts = _attach_verified_cancellation_contexts(
+            pr={}, pr_number=9411, repo_override=None, check_surfaces=surfaces
+        )
+
+        assert contexts == []
+        assert surfaces == {}
+
+    @staticmethod
+    def _cancelled_build_check() -> dict[str, Any]:
+        return {
+            "name": "build",
+            "workflowName": "Build Documentation (PR Check)",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+            "detailsUrl": ("https://github.com/synaptent/aragora/actions/runs/12345/job/67890"),
+            "completedAt": "2026-07-17T15:37:35Z",
+        }
+
+    @staticmethod
+    def _required_surface(*, state: str = "SUCCESS", include_quorum: bool = True) -> dict[str, Any]:
+        checks = [
+            {
+                "name": "lint",
+                "workflow": "Lint",
+                "state": state,
+                "bucket": "pass" if state == "SUCCESS" else "fail",
+                "link": "https://github.com/synaptent/aragora/actions/runs/1/job/1",
+            }
+        ]
+        if include_quorum:
+            checks.append(
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflow": "Aragora Merge Quorum",
+                    "state": "SUCCESS",
+                    "bucket": "pass",
+                    "link": "https://github.com/synaptent/aragora/actions/runs/2/job/2",
+                }
+            )
+        return {
+            "available": True,
+            "checks": checks,
+            "error": "",
+        }
+
+    @staticmethod
+    def _cancelled_build_run(head_sha: str) -> dict[str, Any]:
+        verifier_steps = [
+            "Update doc stats",
+            "Sync documentation",
+            "Check capability matrix is synced",
+            "Check command guidance drift",
+            "Check CLI reference is synced",
+            "Ensure docs are synced",
+            "Generate capability matrix summary artifact",
+            "Build documentation",
+            "Check for broken links",
+        ]
+        return {
+            "headSha": head_sha,
+            "status": "completed",
+            "conclusion": "cancelled",
+            "workflowName": "Build Documentation (PR Check)",
+            "jobs": [
+                {
+                    "databaseId": 67890,
+                    "name": "build",
+                    "status": "completed",
+                    "conclusion": "cancelled",
+                    "steps": [
+                        {"name": "Checkout", "conclusion": "CANCELLED"},
+                        *[{"name": name, "conclusion": "SKIPPED"} for name in verifier_steps],
+                    ],
+                }
+            ],
+        }
+
+    @staticmethod
+    def _gh_json_dispatch(
+        run: dict[str, Any] | None,
+        files: list[dict[str, Any]] | None = None,
+    ) -> Any:
+        """The receipt makes two kinds of gh calls: a REST changed-files guard
+        lookup and a `run view` inspection. Route each to its payload. The
+        files payload is slurped-pages shape: a list of pages of file dicts."""
+
+        def _dispatch(args: list[str]) -> Any:
+            if list(args[:1]) == ["api"]:
+                return [files if files is not None else [{"filename": "aragora/some_file.py"}]]
+            return run
+
+        return _dispatch
+
+    def test_accepts_exact_head_allowlisted_early_cancellation(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[
+                self._cancelled_build_check(),
+                {
+                    "name": "lint",
+                    "workflowName": "Lint",
+                    "status": "COMPLETED",
+                    "conclusion": "SUCCESS",
+                },
+            ],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            self._gh_json_dispatch(self._cancelled_build_run(head_sha)),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt["head_sha"] == head_sha
+        assert receipt["required_checks_summary"] == "2/2 required green"
+        assert receipt["ignored_contexts"][0]["run_id"] == 12345
+        assert receipt["ignored_contexts"][0]["head_sha"] == head_sha
+        assert receipt["ignored_contexts"][0]["reason"].startswith("allowlisted non-required")
+
+    def test_rejects_run_from_different_head(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = "exact-head"
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            self._gh_json_dispatch(self._cancelled_build_run("stale-head")),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_substantive_verifier_that_ran(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        run = self._cancelled_build_run(head_sha)
+        run["jobs"][0]["steps"][-2]["conclusion"] = "SUCCESS"
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json", self._gh_json_dispatch(run)
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_unallowlisted_step_that_ran_after_first_verifier(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        run = self._cancelled_build_run(head_sha)
+        steps = run["jobs"][0]["steps"]
+        # A step the allowlist does not know about, positioned inside the
+        # verifier tail, that already ran: additive drift must fail closed.
+        steps.insert(
+            len(steps) - 2,
+            {"name": "Fetch PR base branch for capability summary", "conclusion": "SUCCESS"},
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json", self._gh_json_dispatch(run)
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_accepts_injected_wrapup_steps_after_cancellation(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        run = self._cancelled_build_run(head_sha)
+        run["jobs"][0]["steps"].extend(
+            [
+                {"name": "Post Checkout", "conclusion": "SUCCESS"},
+                {"name": "Complete job", "conclusion": "SUCCESS"},
+            ]
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json", self._gh_json_dispatch(run)
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt["head_sha"] == head_sha
+
+    def test_rejects_pr_modifying_guarded_workflow(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            self._gh_json_dispatch(
+                self._cancelled_build_run(head_sha),
+                files=[{"filename": ".github/workflows/docs-build.yml"}],
+            ),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_when_changed_files_lookup_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        run = self._cancelled_build_run(head_sha)
+
+        def _failing_files(args: list[str]) -> Any:
+            if list(args[:1]) == ["api"]:
+                raise _RQGhError("boom")
+            return run
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _failing_files)
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_pr_renaming_guarded_workflow_away(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        # A rename surfaces the guarded file only as `previous_filename`;
+        # it must disqualify the PR exactly like an in-place edit.
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            self._gh_json_dispatch(
+                self._cancelled_build_run(head_sha),
+                files=[
+                    {
+                        "filename": ".github/workflows/docs-build-v2.yml",
+                        "previous_filename": ".github/workflows/docs-build.yml",
+                        "status": "renamed",
+                    }
+                ],
+            ),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_empty_changed_files_listing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            self._gh_json_dispatch(self._cancelled_build_run(head_sha), files=[]),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    @pytest.mark.parametrize("step_metadata", ["missing", "empty", "incomplete", "malformed"])
+    def test_rejects_unproven_verifier_step_metadata(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        step_metadata: str,
+    ) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        run = self._cancelled_build_run(head_sha)
+        job = run["jobs"][0]
+        if step_metadata == "missing":
+            job.pop("steps")
+        elif step_metadata == "empty":
+            job["steps"] = []
+        elif step_metadata == "incomplete":
+            job["steps"].pop()
+        else:
+            job["steps"].append("malformed-step")
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json", self._gh_json_dispatch(run)
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_required_check_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(state="FAILURE"),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            self._gh_json_dispatch(self._cancelled_build_run(head_sha)),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_missing_required_merge_quorum(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(include_quorum=False),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            self._gh_json_dispatch(self._cancelled_build_run(head_sha)),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_unallowlisted_cancelled_context(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        pr = _make_pr(
+            number=9034,
+            checks=[
+                {
+                    **self._cancelled_build_check(),
+                    "workflowName": "Metrics Drift",
+                    "name": "check",
+                }
+            ],
+            merge_state_status="UNSTABLE",
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda _args: pytest.fail("unallowlisted cancellation must not inspect a run"),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_stale_rollup_context(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        pr = _make_pr(
+            number=9034,
+            checks=[
+                self._cancelled_build_check(),
+                {
+                    "name": "advisory",
+                    "workflowName": "Advisory Workflow",
+                    "status": "COMPLETED",
+                    "conclusion": "STALE",
+                    "completedAt": "2026-07-17T15:38:35Z",
+                },
+            ],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = "exact-head"
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: pytest.fail("STALE must fail before required-check fetch"),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda _args: pytest.fail("STALE must fail before cancelled-run inspection"),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+
 # --- B2: --ignore-own-quorum-check (diagnostic only) -----------------------
 
 
@@ -1096,9 +1692,16 @@ class TestModelReviewQuorum:
         assert quorum["status"] == "satisfied"
         assert quorum["verdict"] == "admin_squash_allowed"
         assert quorum["admin_squash_allowed"] is True
-        assert set(quorum["counted_reviewer_ids"]) == {"claude", "gemini", "openai"}
+        # gemini is advisory-only (roster record): its review may be present but
+        # it never appears in counted ids (#9363 openai [P2] — packet consumers
+        # read counted_model_families as "counts toward quorum").
+        assert set(quorum["counted_reviewer_ids"]) == {"claude", "openai"}
 
-    def test_duplicate_codex_comments_do_not_satisfy_tier_two_quorum(self) -> None:
+    def test_single_western_frontier_signal_satisfies_tier_two_quorum(self) -> None:
+        # Tiered gate: Tier 2 settles on ONE western-frontier (openai/codex) signal
+        # + dogfood. Duplicate same-family comments still dedup to a single distinct
+        # family (counted_reviewer_ids == ["openai"]); they don't inflate the count,
+        # but one western-frontier signal is sufficient at this tier.
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [
             _codex_openai_comment(),
@@ -1126,12 +1729,15 @@ class TestModelReviewQuorum:
             has_failures=False,
         )
         assert quorum["tier"] == 2
-        assert quorum["status"] == "needs_model_review_quorum"
-        assert quorum["admin_squash_allowed"] is False
+        assert quorum["status"] == "satisfied"
+        assert quorum["admin_squash_allowed"] is True
         assert quorum["counted_reviewer_ids"] == ["openai"]
-        assert "model quorum incomplete: 1/2 signal(s)" in quorum["reasons"]
+        assert quorum["requires_western_frontier_signal"] is True
+        assert quorum["has_western_frontier_signal"] is True
 
-    def test_codex_dogfood_and_grok_review_satisfy_tier_two_quorum(self) -> None:
+    def test_dogfood_only_western_frontier_signal_does_not_satisfy_tier_two_quorum(
+        self,
+    ) -> None:
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [
             _codex_openai_comment(),
@@ -1149,10 +1755,12 @@ class TestModelReviewQuorum:
             has_failures=False,
         )
         assert quorum["tier"] == 2
-        assert quorum["status"] == "satisfied"
-        assert quorum["admin_squash_allowed"] is True
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["admin_squash_allowed"] is False
         assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
         assert quorum["counted_model_families"] == ["grok", "openai"]
+        assert quorum["has_western_frontier_signal"] is False
+        assert any("western-frontier" in reason for reason in quorum["reasons"])
         assert quorum["dogfood_evidence"][0]["surface_reviewer_id"] == "codex"
         assert quorum["dogfood_evidence"][0]["model_family"] == "openai"
 
@@ -1161,7 +1769,9 @@ class TestModelReviewQuorum:
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["headRefOid"] = head
         pr["comments"] = [
-            _codex_openai_comment(body=f"Current head: {head}\nlocal checks pass."),
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
             {
                 "author": {"login": "an0mium"},
                 "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
@@ -1192,12 +1802,438 @@ class TestModelReviewQuorum:
         assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
         assert "unresolved model dissent is present" in quorum["reasons"]
 
+    def test_severity_gated_p2_only_changes_requested_is_advisory(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Claude independent model review\n"
+                    f"Current head: {head}\n"
+                    "Verdict: CHANGES-REQUESTED\n"
+                    "[P2] Add stronger smoke coverage in a follow-up."
+                ),
+            },
+        ]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["unresolved_dissent"] is False
+        assert quorum["dissenting_views"] == []
+        assert len(quorum["advisory_views"]) == 1
+        assert quorum["advisory_views"][0]["position"] == "advisory_changes_requested"
+        assert quorum["advisory_views"][0]["blocking"] is False
+        assert quorum["advisory_views"][0]["highest_severity"] is None
+        assert quorum["status"] == "satisfied"
+        assert quorum["admin_squash_allowed"] is True
+        assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
+
+    def test_severity_gated_protocol_dissent_still_blocks(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        protocol = _executed_protocol()
+        protocol["dissenting_views"] = [
+            {
+                "agent": "openai-api:security",
+                "position": "request_changes",
+                "reason": "[P2] Add a follow-up smoke test.",
+            }
+        ]
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["comments"] = [_dogfood_comment()]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol=protocol,
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["unresolved_dissent"] is True
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["admin_squash_allowed"] is False
+
+    def test_advisory_only_dogfood_does_not_satisfy_required_leg(self) -> None:
+        # #9363 round-4 [P2]: a gemini-attributed dogfood item must not satisfy
+        # the required adversarial-dogfood leg at Tier 1+ (roster record:
+        # advisory-only families never count FOR).
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    f"## Claude independent model review\nCurrent head: {head}\nVerdict: approve."
+                ),
+            },
+            _family_dogfood_comment("gemini"),
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["admin_squash_allowed"] is False
+        assert "focused adversarial dogfood evidence is required" in quorum["reasons"]
+        # Contrast: the same dogfood item from a counting (Chinese-routed at
+        # Tier 2) family satisfies the leg.
+        pr["comments"][-1] = _family_dogfood_comment("deepseek")
+        satisfied = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert satisfied["status"] == "satisfied"
+
+    def test_advisory_only_protocol_payload_dissent_does_not_block(self) -> None:
+        # #9363 round-4 [P2]: a {"agent": "gemini", ...} dissenting view arriving
+        # via the merge-protocol payload (or a stale prepared artifact) must not
+        # block — only the comments path was filtered before.
+        protocol = _executed_protocol()
+        protocol["dissenting_views"] = [
+            {
+                "agent": "gemini:maintainability",
+                "position": "request_changes",
+                "reason": "[P1] fabricated blocking claim",
+            },
+            # Live protocol payloads use the AgentRegistry name ("gemini-cli"),
+            # which must canonicalize to the same advisory-only family
+            # (#9363 round-5 [P2]).
+            {
+                "agent": "gemini-cli:maintainability",
+                "position": "request_changes",
+                "reason": "[P1] fabricated blocking claim",
+            },
+        ]
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol=protocol,
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["unresolved_dissent"] is False
+        assert quorum["dissenting_views"] == []
+        assert quorum["status"] == "satisfied"
+
+    def test_advisory_only_blocking_severity_review_recorded_as_advisory_view(self) -> None:
+        # #9363 round-4 [P3]: a [P1]-backed gemini CHANGES-REQUESTED never blocks
+        # but must not vanish from the merge packet — it is preserved as an
+        # advisory view.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Gemini independent model review\n"
+                    f"Current head: {head}\n"
+                    "Verdict: CHANGES-REQUESTED\n"
+                    "[P1] fabricated blocking claim."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["unresolved_dissent"] is False
+        assert quorum["dissenting_views"] == []
+        assert quorum["status"] == "satisfied"
+        advisory_agents = [str(view.get("agent", "")) for view in quorum["advisory_views"]]
+        assert "gemini" in advisory_agents
+        gemini_view = quorum["advisory_views"][advisory_agents.index("gemini")]
+        assert gemini_view["blocking"] is False
+        assert gemini_view["highest_severity"] == "P1"
+        assert any(
+            "advisory finding from gemini" in reason and "advisory-only family" in reason
+            for reason in quorum["reasons"]
+        )
+
+    def test_advisory_only_family_excluded_from_emitted_counted_ids(self) -> None:
+        # #9363 round-5 openai [P2]: the packet's counted_reviewer_ids /
+        # counted_model_families are consumed by downstream automation as
+        # "counts toward quorum" — an advisory-only family must not appear
+        # there even when its review is grounded and positive. The review
+        # itself stays visible in reviewer_signals.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    f"## Gemini independent model review\nCurrent head: {head}\nVerdict: approve."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert "gemini" not in quorum["counted_reviewer_ids"]
+        assert "gemini" not in quorum["counted_model_families"]
+        signal_families = {
+            str(signal.get("reviewer_id", "")) for signal in quorum["reviewer_signals"]
+        }
+        assert "gemini" in signal_families
+
+    def test_evidence_lint_advisory_only_family_would_not_count(self) -> None:
+        # #9363 round-5 openai [P2]: a grounded gemini PASS must lint as
+        # would_count=False with the no-counted-family problems, matching the
+        # "never count" roster contract, so prepared-evidence tooling cannot
+        # treat gemini as a countable family.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        result = _lint_evidence_comment(
+            pr="9363",
+            head_sha=head,
+            head_committed_at="2026-07-23T00:00:00Z",
+            body=(
+                "## Gemini independent model review\n"
+                f"Current head: {head}\n"
+                "PR: #9363.\n"
+                "Verdict: approve.\n"
+                "Focused adversarial dogfood passed."
+            ),
+            author="an0mium",
+            source="test",
+        )
+        assert result["would_count"] is False
+        assert result["counted_model_families"] == []
+        assert "no_counted_model_family" in result["problems"]
+
+    @staticmethod
+    def _proxy_lint_body(head: str, *, disclosure: str) -> str:
+        return (
+            "## Claude independent model review\n\n"
+            "Reviewer: claude (anthropic) — independent adversarial model review via "
+            "local VibeProxy Anthropic Messages transport (model: claude-opus-5), "
+            "grounded on the exact PR head.\n"
+            f"Head: {head[:7]} ({head}).\n"
+            "PR: #9505.\n"
+            "Model family: claude\n"
+            f"{disclosure}"
+            "\nVerdict: PASS\nNo findings.\n\ndogfood: yes\n"
+        )
+
+    @pytest.mark.parametrize(
+        "disclosure",
+        [
+            "",  # hand-posted proxy body with no disclosure at all
+            # Non-canonical grounding value: the exact line is required.
+            "Reviewer harness: local VibeProxy Anthropic Messages transport\n"
+            "Transport grounding: trust me\n",
+        ],
+    )
+    def test_evidence_lint_rejects_proxy_body_without_exact_disclosure(
+        self, disclosure: str
+    ) -> None:
+        # In-process demotion cannot protect against re-posting composed text
+        # by hand; the lint must fail these closed on its own.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        result = _lint_evidence_comment(
+            pr="9505",
+            head_sha=head,
+            head_committed_at="2026-08-15T00:00:00Z",
+            body=self._proxy_lint_body(head, disclosure=disclosure),
+            author="an0mium",
+            source="test",
+        )
+        assert result["would_count"] is False
+        assert "proxy_transport_grounding_undisclosed" in result["problems"]
+
+    def test_evidence_lint_counts_disclosed_proxy_transport_body(self) -> None:
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        disclosure = (
+            "Reviewer harness: local VibeProxy Anthropic Messages transport\n"
+            f"Transport grounding: {PROXY_GROUNDING_DISCLOSURE}\n"
+        )
+        result = _lint_evidence_comment(
+            pr="9505",
+            head_sha=head,
+            head_committed_at="2026-08-15T00:00:00Z",
+            body=self._proxy_lint_body(head, disclosure=disclosure),
+            author="an0mium",
+            source="test",
+        )
+        assert "proxy_transport_grounding_undisclosed" not in result["problems"]
+        assert result["would_count"] is True
+        assert result["counted_model_families"] == ["claude"]
+
+    def test_evidence_lint_ignores_vibeproxy_mention_in_findings(self) -> None:
+        # Transport classification keys on the reviewer/harness disclosure lines,
+        # not on prose: a grounded CLI review DISCUSSING VibeProxy still counts.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        result = _lint_evidence_comment(
+            pr="9505",
+            head_sha=head,
+            head_committed_at="2026-08-15T00:00:00Z",
+            body=(
+                "## Claude independent model review\n\n"
+                "Reviewer: claude (anthropic) — independent adversarial model review "
+                "via claude CLI, grounded on the exact PR head.\n"
+                f"Head: {head[:7]} ({head}).\n"
+                "PR: #9505.\n"
+                "Model family: claude\n"
+                "\nVerdict: PASS\n"
+                "- [P3] the VibeProxy fallback comment could cite the policy doc\n"
+                "\ndogfood: yes\n"
+            ),
+            author="an0mium",
+            source="test",
+        )
+        assert "proxy_transport_grounding_undisclosed" not in result["problems"]
+        assert result["would_count"] is True
+
+    def test_severity_gated_explicit_p2_blocker_still_blocks(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Claude independent model review\n"
+                    f"Current head: {head}\n"
+                    "Verdict: CHANGES-REQUESTED\n"
+                    "Blockers:\n"
+                    "- [P2] Merge gate can be bypassed."
+                ),
+            },
+        ]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["unresolved_dissent"] is True
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["dissenting_views"][0]["agent"] == "claude"
+
+    def test_severity_gated_p1_changes_requested_still_blocks(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Claude independent model review\n"
+                    f"Current head: {head}\n"
+                    "Verdict: CHANGES-REQUESTED\n"
+                    "[P1] Merge gate dissent is unresolved."
+                ),
+            },
+        ]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["unresolved_dissent"] is True
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["dissenting_views"][0]["agent"] == "claude"
+
     def test_github_actions_bot_changes_requested_comment_blocks_quorum(self) -> None:
         head = "cd87c5a1b2db34f04167906553502db3ede9525e"
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["headRefOid"] = head
         pr["comments"] = [
-            _codex_openai_comment(body=f"Current head: {head}\nlocal checks pass."),
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
             {
                 "author": {"login": "an0mium"},
                 "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
@@ -1233,7 +2269,9 @@ class TestModelReviewQuorum:
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["headRefOid"] = head
         pr["comments"] = [
-            _codex_openai_comment(body=f"Current head: {head}\nlocal checks pass."),
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
             {
                 "author": {"login": "an0mium"},
                 "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
@@ -1436,7 +2474,10 @@ class TestModelReviewQuorum:
         pr["comments"] = [
             {
                 "author": {"login": "an0mium"},
-                "body": _codex_openai_body(),
+                "body": _codex_openai_body(
+                    heading="## Codex review",
+                    body="Verdict: approve.\nFocused adversarial dogfood passed.",
+                ),
                 "createdAt": "2026-04-28T20:05:00Z",
             },
             {
@@ -1470,7 +2511,12 @@ class TestModelReviewQuorum:
             {
                 "author": {"login": "an0mium"},
                 "body": _codex_openai_body(
-                    body=f"Reviewed at head {head_sha[:7]} - local checks pass."
+                    heading="## Codex review",
+                    body=(
+                        f"Reviewed at head {head_sha[:7]}.\n"
+                        "Verdict: approve.\n"
+                        "Focused adversarial dogfood passed."
+                    ),
                 ),
                 "createdAt": "2026-04-28T18:00:00Z",
             },
@@ -1590,6 +2636,115 @@ class TestModelReviewQuorum:
         assert quorum["human_risk_settlement_recorded"] is True
         assert "exact-head human risk settlement receipt recorded" in quorum["reasons"]
 
+    # --- Jurisdiction enforcement at the live gate (claude/grok #8507 P2/P3) ----
+    # These exercise the security-critical Western-only / at-least-one-Western
+    # rejections at the enforcement layer (_build_model_review_quorum), which the
+    # prior suite never covered because it contained zero Chinese-routed families.
+
+    def test_tier_three_chinese_routed_family_is_advisory_not_counted(self) -> None:
+        # Tier 3 (security surface): claude + deepseek. deepseek is advisory-only,
+        # so the Western-only counted quorum drops it → only 1 Western < 2 required.
+        pr = _make_pr(files=["aragora/security/encryption.py"])
+        pr["comments"] = [
+            _family_dogfood_comment("Claude"),
+            _model_review_comment("Claude"),
+            _model_review_comment("DeepSeek"),
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/security/encryption.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 3
+        # deepseek remains in counted_reviewer_ids for the audit trail.
+        assert quorum["counted_reviewer_ids"] == ["claude", "deepseek"]
+        # But it does not count toward the quorum → incomplete, no admin squash.
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["admin_squash_allowed"] is False
+        assert any("1/2 signal(s)" in reason for reason in quorum["reasons"])
+        assert any("Western-only counted quorum" in reason for reason in quorum["reasons"])
+
+    def test_tier_three_two_western_families_satisfy_quorum(self) -> None:
+        # Same Tier 3 surface, claude + grok: both Western, so the quorum is met
+        # (Tier 3 then advances to the human-risk-settlement requirement, which is
+        # the satisfied-quorum state — not needs_model_review_quorum).
+        pr = _make_pr(files=["aragora/security/encryption.py"])
+        pr["comments"] = [
+            _family_dogfood_comment("Claude"),
+            _model_review_comment("Claude"),
+            _model_review_comment("Grok"),
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/security/encryption.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 3
+        assert quorum["counted_reviewer_ids"] == ["claude", "grok"]
+        # Quorum is satisfied: no "incomplete" / "Western-only" reasons remain.
+        assert quorum["status"] == "human_risk_settlement_required"
+        assert quorum["requires_human_risk_settlement"] is True
+        assert not any("signal(s)" in reason for reason in quorum["reasons"])
+        assert not any("Western-only counted quorum" in reason for reason in quorum["reasons"])
+
+    def test_tier_two_no_western_family_fails_quorum_flag_off(self, monkeypatch) -> None:
+        # Tier 2, tiered relaxation OFF: deepseek + qwen are two distinct families
+        # but neither is Western, so the at-least-one-Western rule blocks the merge.
+        monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["comments"] = [
+            _family_dogfood_comment("DeepSeek"),
+            _model_review_comment("DeepSeek"),
+            _model_review_comment("Qwen"),
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 2
+        assert quorum["counted_reviewer_ids"] == ["deepseek", "qwen"]
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["admin_squash_allowed"] is False
+        assert any(
+            "at least one counted model signal must be from a Western family" in reason
+            for reason in quorum["reasons"]
+        )
+
+    def test_tier_two_one_western_family_satisfies_quorum_flag_off(self, monkeypatch) -> None:
+        # Tier 2, tiered relaxation OFF: claude + deepseek. Two distinct families
+        # and ≥1 Western (claude), so the quorum is satisfied. deepseek counts
+        # toward the 2-distinct bar at Tier 2 (Western-only counting is Tier 3-4).
+        monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["comments"] = [
+            _family_dogfood_comment("Claude"),
+            _model_review_comment("Claude"),
+            _model_review_comment("DeepSeek"),
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 2
+        assert quorum["counted_reviewer_ids"] == ["claude", "deepseek"]
+        assert quorum["status"] == "satisfied"
+        assert quorum["admin_squash_allowed"] is True
+        assert not any("Western family" in reason for reason in quorum["reasons"])
+
     def test_human_risk_settlement_does_not_clear_unresolved_dissent(self) -> None:
         pr = _make_pr(files=["aragora/reputation/store.py"])
         pr["comments"] = [_dogfood_comment()]
@@ -1684,7 +2839,10 @@ class TestModelReviewQuorum:
         self,
     ) -> None:
         head_sha = "abcdef1234567890abcdef1234567890abcdef12"
-        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        # Tier-3 surface (security): a lone counted western-frontier signal is NOT
+        # sufficient there, so the "review-object form does not count" intent still
+        # leaves the quorum incomplete under tiered settlement.
+        pr = _make_pr(files=["aragora/security/encryption.py"])
         pr["headRefOid"] = head_sha
         pr["commits"] = [
             {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
@@ -1713,7 +2871,7 @@ class TestModelReviewQuorum:
         ]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/swarm.py"],
+            files=["aragora/security/encryption.py"],
             protocol={"status": "metadata_heuristic"},
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -1731,7 +2889,9 @@ class TestModelReviewQuorum:
         self,
     ) -> None:
         head_sha = "abcdef1234567890abcdef1234567890abcdef12"
-        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        # Tier-3 surface (still requires two distinct signals) so the lone counted
+        # claude leaves the quorum incomplete and the codex-metadata warning fires.
+        pr = _make_pr(files=["aragora/security/encryption.py"])
         pr["headRefOid"] = head_sha
         pr["commits"] = [
             {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
@@ -1758,7 +2918,7 @@ class TestModelReviewQuorum:
         ]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/swarm.py"],
+            files=["aragora/security/encryption.py"],
             protocol={"status": "metadata_heuristic"},
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -1923,7 +3083,7 @@ class TestModelReviewQuorum:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_queue",
-            lambda limit: [_classify_pr(_make_pr(number=7736))],
+            lambda limit, repo_override=None: [_classify_pr(_make_pr(number=7736))],
         )
 
         def _gh_json_dispatch(args: list[str]) -> Any:
@@ -2557,6 +3717,310 @@ class TestModelReviewQuorum:
         assert _dogfood_evidence_from_comments(comments, head_sha=head) == []
 
 
+_QUORUM_ONLY_FAILURE_SURFACES = {
+    "required_pr_checks": {
+        "quorum_only_failure": True,
+        # External settle-tooling shape: the merge-quorum row is a distinct failing
+        # required check, so the surface is also advisory_settle-clear.
+        "advisory_settle_surface_clear": True,
+    }
+}
+
+# In-job (#8739) shape: inside the enforcing Aragora Merge Quorum job the quorum row
+# is the excluded current self-check, so ``quorum_only_failure`` is False even though
+# the quorum signal is exactly what is missing. No NON-quorum required check is
+# failing/pending, so ``advisory_settle_surface_clear`` is True and advisory_settle
+# must still be reachable.
+_INJOB_QUORUM_SELF_CHECK_SURFACES = {
+    "required_pr_checks": {
+        "quorum_only_failure": False,
+        "advisory_settle_surface_clear": True,
+    }
+}
+
+
+class TestAdvisoryDissentSettleGate:
+    """The opt-in advisory_settle path (ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE).
+
+    Default OFF — byte-identical to today. When ON, a Tier 0-2 PR whose only
+    failing required check is the model-quorum check settles via
+    verdict=advisory_settle when (and only when): a western-frontier review is
+    present at head IN ANY VERDICT, there is GENUINE advisory dissent being waived
+    (advisory_findings non-empty), zero [P0]/[P1] blocking findings across all
+    reviews, and nothing else is pending/unavailable/blocking.
+
+    These tests exercise the REAL caller shape: the quorum-only failure means the
+    merge-quorum required check IS failing, so ``has_failures=True`` (the first
+    cut's ``has_failures=False`` masked the dead-code path — #8729 claude [P1]).
+    """
+
+    HEAD = "cd87c5a1b2db34f04167906553502db3ede9525e"
+
+    @pytest.fixture(autouse=True)
+    def _strict_tiered_gate(self, monkeypatch) -> None:
+        # Pin the (separate) tiered-merge-gate flag OFF so a lone western-frontier
+        # signal does NOT satisfy strict Tier 1-2 quorum on its own — keeps these
+        # tests on the advisory_settle rescue path, not the tiered-gate relaxation.
+        monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+
+    def _wf_advisory_cr_comment(self) -> dict[str, Any]:
+        # A western-frontier (claude) review at head whose verdict is an advisory
+        # [P2] CHANGES-REQUESTED (no [P0]/[P1]). Advisory only when the severity
+        # gate is ON.
+        return {
+            "author": {"login": "an0mium"},
+            "body": (
+                "## Claude independent model review\n"
+                "Model family: claude\n"
+                f"Current head: {self.HEAD}\n"
+                "Verdict: CHANGES-REQUESTED\n"
+                "[P2] Add stronger smoke coverage in a follow-up."
+            ),
+        }
+
+    def _pr_wf_advisory_cr(self, files: list[str]) -> dict[str, Any]:
+        pr = _make_pr(files=files)
+        pr["headRefOid"] = self.HEAD
+        pr["comments"] = [self._wf_advisory_cr_comment()]
+        return pr
+
+    def _tier1_pr_wf_advisory_cr(self) -> dict[str, Any]:
+        return self._pr_wf_advisory_cr(["aragora/agents/router.py"])
+
+    def _tier1_pr_lone_approval(self) -> dict[str, Any]:
+        # A single western-frontier APPROVAL and no dissent at all.
+        pr = _make_pr(files=["aragora/agents/router.py"])
+        pr["headRefOid"] = self.HEAD
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=(
+                    f"Current head: {self.HEAD}\nVerdict: approve.\n"
+                    "Focused adversarial dogfood passed."
+                )
+            ),
+        ]
+        return pr
+
+    def _quorum(self, pr, *, has_failures=True, has_pending=False, files=None, check_surfaces=None):
+        return _build_model_review_quorum(
+            pr=pr,
+            files=files or ["aragora/agents/router.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="repair_first" if has_failures else "approve_candidate",
+            has_pending=has_pending,
+            has_failures=has_failures,
+            check_surfaces=check_surfaces
+            if check_surfaces is not None
+            else _QUORUM_ONLY_FAILURE_SURFACES,
+        )
+
+    def test_flag_on_settles_in_enforcing_job_via_surface_clear(self, monkeypatch) -> None:
+        # #8739 regression: inside the enforcing merge-quorum job the quorum row is
+        # the excluded self-check, so quorum_only_failure is False. advisory_settle
+        # must still be reachable via the self-check-independent
+        # advisory_settle_surface_clear predicate — otherwise enabling the flag
+        # (#8738) is a no-op in CI.
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        q = self._quorum(
+            self._tier1_pr_wf_advisory_cr(),
+            has_failures=True,
+            check_surfaces=_INJOB_QUORUM_SELF_CHECK_SURFACES,
+        )
+        assert q["tier"] == 1
+        assert q["status"] == "satisfied"
+        assert q["verdict"] == "advisory_settle"
+        assert q["admin_squash_allowed"] is True
+        assert q["unresolved_dissent"] is False
+
+    def test_flag_off_advisory_cr_still_blocked(self, monkeypatch) -> None:
+        # Flag OFF (default): advisory_settle dormant; behavior byte-identical.
+        monkeypatch.delenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", raising=False)
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        q = self._quorum(self._tier1_pr_wf_advisory_cr())
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
+
+    @pytest.mark.parametrize(
+        ("expected_tier", "files"),
+        [
+            (0, ["docs/status/queue.md"]),
+            (1, ["aragora/agents/router.py"]),
+            (2, ["aragora/cli/commands/swarm.py"]),
+        ],
+    )
+    def test_flag_on_wf_advisory_cr_settles_only_for_tier_zero_to_two(
+        self, monkeypatch, expected_tier: int, files: list[str]
+    ) -> None:
+        # THE regression: real caller passes has_failures=True (merge-quorum is the
+        # failing check). advisory_settle must still be REACHED (not masked by the
+        # repair_or_wait branch — #8729 claude [P1]), but only for Tier 0-2.
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        q = self._quorum(
+            self._pr_wf_advisory_cr(files),
+            has_failures=True,
+            files=files,
+        )
+        assert q["tier"] == expected_tier
+        assert q["status"] == "satisfied"
+        assert q["verdict"] == "advisory_settle"
+        assert q["admin_squash_allowed"] is True
+        assert q["unresolved_dissent"] is False
+
+    def test_flag_on_surfaces_advisory_findings(self, monkeypatch) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        q = self._quorum(self._tier1_pr_wf_advisory_cr())
+        assert q["verdict"] == "advisory_settle"
+        assert len(q["advisory_findings"]) >= 1
+
+    def test_flag_on_lone_approval_no_dissent_does_not_settle(self, monkeypatch) -> None:
+        # #8729 openai [P1]: a lone approving WF comment with NO advisory dissent
+        # must NOT settle (that would be a one-review quorum bypass).
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        q = self._quorum(self._tier1_pr_lone_approval())
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
+
+    @pytest.mark.parametrize("severity", ["P0", "P1"])
+    def test_flag_on_p0_p1_finding_still_blocked(self, monkeypatch, severity: str) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        pr = self._tier1_pr_wf_advisory_cr()
+        pr["comments"].append(
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Codex review\nModel family: openai\n"
+                    f"Current head: {self.HEAD}\n"
+                    "Verdict: CHANGES-REQUESTED\n"
+                    f"[{severity}] Merge gate dissent is unresolved."
+                ),
+            }
+        )
+        q = self._quorum(pr)
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
+
+    @pytest.mark.parametrize(
+        ("expected_tier", "files"),
+        [
+            (3, ["aragora/auth/session.py"]),
+            (4, [".github/workflows/aragora-merge-quorum.yml"]),
+        ],
+    )
+    def test_flag_on_tier_three_and_four_unaffected(
+        self, monkeypatch, expected_tier: int, files: list[str]
+    ) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        q = self._quorum(self._pr_wf_advisory_cr(files), files=files)
+        assert q["tier"] == expected_tier
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
+        assert q["requires_human_risk_settlement"] is True
+
+    def test_flag_on_non_wf_only_does_not_settle(self, monkeypatch) -> None:
+        # Only a NON-western-frontier (grok) review at head -> no WF review present.
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        pr = _make_pr(files=["aragora/agents/router.py"])
+        pr["headRefOid"] = self.HEAD
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Grok independent model review\nModel family: grok\n"
+                    f"Current head: {self.HEAD}\n"
+                    "Verdict: CHANGES-REQUESTED\n[P2] follow-up."
+                ),
+            },
+        ]
+        q = self._quorum(pr)
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
+
+    def test_flag_on_pending_checks_does_not_settle(self, monkeypatch) -> None:
+        # A pending check is a real "wait" condition; advisory_settle must not fire.
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        q = self._quorum(self._tier1_pr_wf_advisory_cr(), has_failures=False, has_pending=True)
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
+
+    def test_flag_on_spoofed_wf_identity_does_not_settle(self, monkeypatch) -> None:
+        # #8729 openai [P1]: a conflicted/uncountable identity (a "## Grok" heading
+        # with a claimed "Model family: claude") must NOT satisfy the WF requirement
+        # — it is not a countable western-frontier signal on the strict path either.
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        pr = _make_pr(files=["aragora/agents/router.py"])
+        pr["headRefOid"] = self.HEAD
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Grok independent model review\n"
+                    "Model family: claude\n"  # conflicts with the Grok heading
+                    f"Current head: {self.HEAD}\n"
+                    "Verdict: CHANGES-REQUESTED\n[P2] follow-up."
+                ),
+            },
+        ]
+        q = self._quorum(pr)
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
+
+    def test_flag_on_bot_authored_advisory_cr_is_not_genuine_dissent(self, monkeypatch) -> None:
+        # #8729 openai [P1] (r4): a valid WF approval PLUS a github-actions[bot]
+        # advisory CR must NOT settle — the bot CR is not genuine (validated-source)
+        # advisory dissent, so there is nothing legitimate to waive.
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        pr = _make_pr(files=["aragora/agents/router.py"])
+        pr["headRefOid"] = self.HEAD
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {self.HEAD}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "github-actions[bot]"},
+                "body": (
+                    "## Claude independent model review\nModel family: claude\n"
+                    f"Current head: {self.HEAD}\nVerdict: CHANGES-REQUESTED\n[P2] nit."
+                ),
+            },
+        ]
+        q = self._quorum(pr)
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
+
+    def test_flag_on_bot_authored_wf_review_does_not_settle(self, monkeypatch) -> None:
+        # #8729 openai [P1] (r2): a github-actions[bot]-authored "Claude" advisory
+        # comment must NOT satisfy the WF prerequisite — the strict signal path
+        # rejects synthetic authors, and so must advisory_settle.
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        pr = _make_pr(files=["aragora/agents/router.py"])
+        pr["headRefOid"] = self.HEAD
+        pr["comments"] = [
+            {
+                "author": {"login": "github-actions[bot]"},
+                "body": (
+                    "## Claude independent model review\n"
+                    "Model family: claude\n"
+                    f"Current head: {self.HEAD}\n"
+                    "Verdict: CHANGES-REQUESTED\n[P2] follow-up."
+                ),
+            },
+        ]
+        q = self._quorum(pr)
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
+
+
 class TestHasBlockingOrNegativeVerdict:
     def test_blocker_value_starting_with_no_letters_is_still_blocking(self) -> None:
         # Word-boundary regression: "node"/"not working" must not be swallowed
@@ -2625,7 +4089,7 @@ class TestHasBlockingOrNegativeVerdict:
         assert _has_blocking_or_negative_verdict("1) [P0] settlement gate bypass")
         assert _has_blocking_or_negative_verdict("> [P1] stale exact-head evidence")
         assert _has_blocking_or_negative_verdict("## [P1] stale exact-head evidence")
-        assert not _has_blocking_or_negative_verdict("[P2] follow-up cleanup")
+        assert _has_blocking_or_negative_verdict("[P2] follow-up cleanup")
 
 
 # --- parenthetical model-family disclosure ---------------------------------
@@ -2658,6 +4122,16 @@ class TestParentheticalModelFamily:
         assert _normalize_model_family("openai") == "openai"
         assert _normalize_model_family("claude") == "claude"
 
+    def test_codex_and_gpt_aliases_resolve_to_openai(self) -> None:
+        # A disclosed "Model family: codex" / "gpt" must count at the gate, since
+        # the collector now emits canonical "openai" for those CLI/product names.
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        assert _normalize_model_family("codex") == "openai"
+        assert _normalize_model_family("gpt") == "openai"
+        assert _normalize_model_family("chatgpt") == "openai"
+        assert _normalize_model_family("codex (gpt-5.5 harness)") == "openai"
+
     def test_aliases_still_resolve_including_multiword(self) -> None:
         from aragora.cli.commands.review_queue import _normalize_model_family
 
@@ -2668,6 +4142,39 @@ class TestParentheticalModelFamily:
         assert _normalize_model_family("nous-hermes") == "hermes"
         # Multi-word alias with a trailing parenthetical still resolves.
         assert _normalize_model_family("nous hermes (8x7b)") == "hermes"
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            ("zhipu", "glm"),
+            ("z-ai", "glm"),
+            ("hy3", "tencent"),
+            ("hunyuan", "tencent"),
+            ("seed", "bytedance"),
+            ("seed-2.0", "bytedance"),
+            ("seed-2.0 (doubao)", "bytedance"),
+            ("doubao", "bytedance"),
+            ("bytedance-seed", "bytedance"),
+        ],
+    )
+    def test_chinese_family_aliases_normalize(self, value: str, expected: str) -> None:
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        assert _normalize_model_family(value) == expected
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            ("z-ai/glm-5.2", "glm"),
+            ("minimax/minimax-m3", "minimax"),
+            ("tencent/hy3", "tencent"),
+            ("bytedance-seed/seed-2.0-lite", "bytedance"),
+        ],
+    )
+    def test_chinese_reviewer_ids_normalize(self, value: str, expected: str) -> None:
+        from aragora.cli.commands.review_queue import _normalize_model_reviewer_id
+
+        assert _normalize_model_reviewer_id(value) == expected
 
     def test_unknown_leading_token_still_unknown(self) -> None:
         from aragora.cli.commands.review_queue import _normalize_model_family
@@ -2832,7 +4339,9 @@ class TestGhTimeouts:
         def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
             captured["args"] = args
             captured["kwargs"] = kwargs
-            raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+            # float() narrows the Any from kwargs for TimeoutExpired's typed
+            # parameter; _gh_json always passes a numeric timeout.
+            raise subprocess.TimeoutExpired(cmd=args[0], timeout=float(kwargs["timeout"]))
 
         monkeypatch.setattr("aragora.cli.commands.review_queue_transport.subprocess.run", fake_run)
 
@@ -2870,6 +4379,20 @@ class TestGhTimeouts:
 
 
 class TestBuildQueueAndPacket:
+    def test_command_parser_accepts_build_repo_override(self) -> None:
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers(dest="command")
+        add_review_queue_parser(subparsers)
+
+        args = parser.parse_args(
+            ["review-queue", "build", "--repo", "synaptent/aragora", "--limit", "7"]
+        )
+
+        assert args.command == "review-queue"
+        assert args.review_queue_command == "build"
+        assert args.repo == "synaptent/aragora"
+        assert args.limit == 7
+
     def test_merge_packet_explicit_pr_refs_do_not_hydrate_open_queue(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2898,6 +4421,7 @@ class TestBuildQueueAndPacket:
                 machine_recommendation_reason="bounded test packet",
                 packet_sha="sha256:test",
                 generated_at="2026-05-30T00:00:00+00:00",
+                merge_state_status="CLEAN",
                 model_review_quorum={
                     "tier": 0,
                     "tier_name": "Tier 0",
@@ -2943,6 +4467,367 @@ class TestBuildQueueAndPacket:
         assert preflighted_refs == [("7528", None)]
         assert packet["admin_squash_order"] == [7528]
 
+    @pytest.mark.parametrize(
+        ("merge_state_status", "labels", "expected_blocker"),
+        [
+            (
+                "UNSTABLE",
+                [],
+                "mergeStateStatus=UNSTABLE; admin squash requires CLEAN or BLOCKED",
+            ),
+            (
+                "CLEAN",
+                ["operator-review-required"],
+                "operator-review-required label present",
+            ),
+            (
+                "",
+                [],
+                "mergeStateStatus unavailable; admin squash requires CLEAN or BLOCKED",
+            ),
+        ],
+    )
+    def test_merge_packet_live_state_blocks_admin_squash_order(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        merge_state_status: str,
+        labels: list[str],
+        expected_blocker: str,
+    ) -> None:
+        def fake_build_packet(ref: str, **_kwargs: Any) -> ReviewPacket:
+            return ReviewPacket(
+                pr_number=int(ref),
+                title=f"PR {ref}",
+                url=f"https://github.com/synaptent/aragora/pull/{ref}",
+                head_sha="abc123",
+                base_sha="def456",
+                author="codex",
+                is_draft=False,
+                additions=1,
+                deletions=1,
+                changed_files=1,
+                queue_bucket="ready_now",
+                touched_subsystems=["scripts"],
+                high_risk_paths_touched=[],
+                validation=[],
+                checks_summary="4/4 green",
+                risk_flags=[],
+                machine_recommendation="approve_candidate",
+                machine_recommendation_reason="bounded test packet",
+                packet_sha="sha256:test",
+                generated_at="2026-05-30T00:00:00+00:00",
+                labels=labels,
+                merge_state_status=merge_state_status,
+                model_review_quorum={
+                    "tier": 0,
+                    "tier_name": "Tier 0",
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "unresolved_dissent": False,
+                    "reviewer_signals": [],
+                    "dogfood_evidence": [],
+                    "counted_reviewer_ids": ["codex"],
+                    "reasons": ["docs/tests/status-only change"],
+                },
+            )
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_packet", fake_build_packet)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._explicit_merged_pr_merge_packet_entry",
+            lambda ref, repo_override: None,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["8958"],
+            limit=30,
+            repo_override=None,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["model_quorum_admin_squash_allowed"] is True
+        assert entry["admin_squash_allowed"] is False
+        assert expected_blocker in entry["admin_squash_gate_blockers"]
+        assert packet["admin_squash_order"] == []
+        # The live-gate flip must be visible in the human-readable fields, not
+        # just via omission from admin_squash_order (#8965 openai [P3]).
+        assert entry["status"] == "blocked_by_live_gate"
+        assert entry["verdict"] == "admin_squash_blocked_by_live_gate"
+        assert 8958 in packet["not_ready"]
+
+    def test_merge_packet_allows_verified_allowlisted_unstable_cancellations(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ignored_context = {
+            "workflow": "Build Documentation (PR Check)",
+            "name": "build",
+            "url": "https://github.com/synaptent/aragora/actions/runs/12345/job/67890",
+            "run_id": 12345,
+            "job_id": 67890,
+            "head_sha": "abc123",
+            "conclusion": "CANCELLED",
+            "reason": (
+                "allowlisted non-required current-head run cancelled before substantive "
+                "verifier command"
+            ),
+            "verifier_steps": [{"name": "Build documentation", "conclusion": "SKIPPED"}],
+        }
+        receipt = {
+            "schema_version": "unstable_non_required_cancellation.v1",
+            "head_sha": "abc123",
+            "merge_state_status": "UNSTABLE",
+            "policy_path": "docs/runbooks/MERGE_STATE_UNSTABLE_SETTLEMENT.md",
+            "required_checks_summary": "6/6 required green",
+            "required_checks": [{"workflow": "Lint", "name": "lint", "state": "SUCCESS"}],
+            "ignored_contexts": [ignored_context],
+        }
+
+        def fake_build_packet(ref: str, **_kwargs: Any) -> ReviewPacket:
+            return ReviewPacket(
+                pr_number=int(ref),
+                title=f"PR {ref}",
+                url=f"https://github.com/synaptent/aragora/pull/{ref}",
+                head_sha="abc123",
+                base_sha="def456",
+                author="codex",
+                is_draft=False,
+                additions=1,
+                deletions=1,
+                changed_files=1,
+                queue_bucket="ready_now",
+                touched_subsystems=["scripts"],
+                high_risk_paths_touched=[],
+                validation=[],
+                checks_summary="6/6 required green",
+                risk_flags=[],
+                machine_recommendation="approve_candidate",
+                machine_recommendation_reason="bounded test packet",
+                packet_sha="sha256:test",
+                generated_at="2026-07-17T00:00:00+00:00",
+                check_surfaces={
+                    "unstable_non_required_cancellation_receipt": receipt,
+                },
+                merge_state_status="UNSTABLE",
+                unstable_non_required_contexts_ignored=[ignored_context],
+                model_review_quorum={
+                    "tier": 2,
+                    "tier_name": "Tier 2",
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "unresolved_dissent": False,
+                    "reviewer_signals": [],
+                    "dogfood_evidence": [],
+                    "counted_reviewer_ids": ["claude", "openai"],
+                    "reasons": ["clean exact-head quorum"],
+                },
+            )
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_packet", fake_build_packet)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._explicit_merged_pr_merge_packet_entry",
+            lambda ref, repo_override: None,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["9034"],
+            limit=30,
+            repo_override="synaptent/aragora",
+        )
+
+        entry = packet["entries"][0]
+        assert entry["admin_squash_allowed"] is True
+        assert entry["admin_squash_gate_blockers"] == []
+        assert entry["unstable_non_required_contexts_ignored"] == [ignored_context]
+        assert packet["admin_squash_order"] == [9034]
+
+    def test_merge_packet_text_renderer_prints_live_gate_blockers(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        def fake_build_packet(ref: str, **_kwargs: Any) -> ReviewPacket:
+            return ReviewPacket(
+                pr_number=int(ref),
+                title=f"PR {ref}",
+                url=f"https://github.com/synaptent/aragora/pull/{ref}",
+                head_sha="abc123",
+                base_sha="def456",
+                author="codex",
+                is_draft=False,
+                additions=1,
+                deletions=1,
+                changed_files=1,
+                queue_bucket="ready_now",
+                touched_subsystems=["scripts"],
+                high_risk_paths_touched=[],
+                validation=[],
+                checks_summary="4/4 green",
+                risk_flags=[],
+                machine_recommendation="approve_candidate",
+                machine_recommendation_reason="bounded test packet",
+                packet_sha="sha256:test",
+                generated_at="2026-05-30T00:00:00+00:00",
+                labels=["operator-review-required"],
+                merge_state_status="CLEAN",
+                model_review_quorum={
+                    "tier": 0,
+                    "tier_name": "Tier 0",
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "unresolved_dissent": False,
+                    "reviewer_signals": [],
+                    "dogfood_evidence": [],
+                    "counted_reviewer_ids": ["codex"],
+                    "reasons": ["docs/tests/status-only change"],
+                },
+            )
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_packet", fake_build_packet)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._explicit_merged_pr_merge_packet_entry",
+            lambda ref, repo_override: None,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["8958"],
+            limit=30,
+            repo_override=None,
+        )
+        _render_merge_authorization_packet(packet)
+
+        out = capsys.readouterr().out
+        assert "blocked_by_live_gate | admin_squash_blocked_by_live_gate" in out
+        assert "admin squash live-gate blockers:" in out
+        assert "operator-review-required label present" in out
+        assert "satisfied | admin_squash_allowed" not in out
+        assert "admin squash order: (none)" in out
+        assert "not ready: #8958" in out
+
+    def test_merge_packet_clean_live_state_allows_admin_squash_order(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_build_packet(ref: str, **_kwargs: Any) -> ReviewPacket:
+            return ReviewPacket(
+                pr_number=int(ref),
+                title=f"PR {ref}",
+                url=f"https://github.com/synaptent/aragora/pull/{ref}",
+                head_sha="abc123",
+                base_sha="def456",
+                author="codex",
+                is_draft=False,
+                additions=1,
+                deletions=1,
+                changed_files=1,
+                queue_bucket="ready_now",
+                touched_subsystems=["scripts"],
+                high_risk_paths_touched=[],
+                validation=[],
+                checks_summary="4/4 green",
+                risk_flags=[],
+                machine_recommendation="approve_candidate",
+                machine_recommendation_reason="bounded test packet",
+                packet_sha="sha256:test",
+                generated_at="2026-05-30T00:00:00+00:00",
+                labels=[],
+                merge_state_status="CLEAN",
+                model_review_quorum={
+                    "tier": 0,
+                    "tier_name": "Tier 0",
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "unresolved_dissent": False,
+                    "reviewer_signals": [],
+                    "dogfood_evidence": [],
+                    "counted_reviewer_ids": ["codex"],
+                    "reasons": ["docs/tests/status-only change"],
+                },
+            )
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_packet", fake_build_packet)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._explicit_merged_pr_merge_packet_entry",
+            lambda ref, repo_override: None,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["8958"],
+            limit=30,
+            repo_override=None,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["model_quorum_admin_squash_allowed"] is True
+        assert entry["admin_squash_allowed"] is True
+        assert entry["admin_squash_gate_blockers"] == []
+        assert packet["admin_squash_order"] == [8958]
+
+    def test_merge_packet_blocked_live_state_allows_satisfied_admin_squash_order(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_build_packet(ref: str, **_kwargs: Any) -> ReviewPacket:
+            return ReviewPacket(
+                pr_number=int(ref),
+                title=f"PR {ref}",
+                url=f"https://github.com/synaptent/aragora/pull/{ref}",
+                head_sha="abc123",
+                base_sha="def456",
+                author="codex",
+                is_draft=False,
+                additions=1,
+                deletions=1,
+                changed_files=1,
+                queue_bucket="ready_now",
+                touched_subsystems=["scripts"],
+                high_risk_paths_touched=[],
+                validation=[],
+                checks_summary="4/4 green",
+                risk_flags=[],
+                machine_recommendation="approve_candidate",
+                machine_recommendation_reason="bounded test packet",
+                packet_sha="sha256:test",
+                generated_at="2026-05-30T00:00:00+00:00",
+                labels=[],
+                merge_state_status="BLOCKED",
+                model_review_quorum={
+                    "tier": 0,
+                    "tier_name": "Tier 0",
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "unresolved_dissent": False,
+                    "reviewer_signals": [],
+                    "dogfood_evidence": [],
+                    "counted_reviewer_ids": ["codex"],
+                    "reasons": ["docs/tests/status-only change"],
+                },
+            )
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_packet", fake_build_packet)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._explicit_merged_pr_merge_packet_entry",
+            lambda ref, repo_override: None,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["8958"],
+            limit=30,
+            repo_override=None,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["model_quorum_admin_squash_allowed"] is True
+        assert entry["admin_squash_allowed"] is True
+        assert entry["admin_squash_gate_blockers"] == []
+        assert packet["admin_squash_order"] == [8958]
+
     def test_build_queue_classifies_and_sorts(self, monkeypatch: pytest.MonkeyPatch) -> None:
         prs = [
             _make_pr(number=10, is_draft=True),  # parked
@@ -2968,6 +4853,39 @@ class TestBuildQueueAndPacket:
             "repairable",
             "parked",
         ]
+
+    def test_build_queue_passes_repo_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        seen_args: list[list[str]] = []
+
+        def fake_gh_json(args: list[str]) -> list[dict[str, Any]]:
+            seen_args.append(args)
+            return []
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        assert _build_queue(limit=7, repo_override="synaptent/aragora") == []
+        assert seen_args
+        assert seen_args[0][-2:] == ["--repo", "synaptent/aragora"]
+
+    def test_merge_packet_open_queue_uses_repo_override(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen_repo_overrides: list[str | None] = []
+
+        def fake_build_queue(*, limit: int, repo_override: str | None = None) -> list[QueueItem]:
+            seen_repo_overrides.append(repo_override)
+            return []
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_queue", fake_build_queue)
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=[],
+            limit=7,
+            repo_override="synaptent/aragora",
+        )
+
+        assert seen_repo_overrides == ["synaptent/aragora"]
+        assert packet["queue_pressure"]["current_open_prs"] == 0
 
     def test_build_packet_sets_recommendation(self, monkeypatch: pytest.MonkeyPatch) -> None:
         pr_payload = _make_pr(
@@ -3936,6 +5854,8 @@ class TestBuildQueueAndPacket:
         ]
         assert quorum["status"] == "needs_model_review_quorum"
         assert quorum["verdict"] == "collect_model_quorum_before_merge"
+        # audit_test_skips.py is part of the Tier-4 contract-drift authority closure,
+        # so the incomplete message requires two independent model-family signals.
         assert "model quorum incomplete: 0/2 signal(s)" in quorum["reasons"]
         assert "checks are failing; repair before settlement" not in quorum["reasons"]
 
@@ -4119,7 +6039,7 @@ class TestBuildQueueAndPacket:
             ],
         )
         pr_payload["comments"] = [
-            _codex_openai_comment(),
+            _codex_openai_review_comment(),
             {
                 "author": {"login": "an0mium"},
                 "body": "## Grok independent model review\nVerdict: approve.",
@@ -4709,7 +6629,7 @@ class TestBuildQueueAndPacket:
         ]
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_queue",
-            lambda limit: [_classify_pr(_make_pr(number=7470))],
+            lambda limit, repo_override=None: [_classify_pr(_make_pr(number=7470))],
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
@@ -4767,9 +6687,8 @@ class TestBuildQueueAndPacket:
         assert entry["machine_recommendation"] == "settled_noop"
         assert entry["admin_squash_allowed"] is False
         assert entry["requires_human_risk_settlement"] is False
-        assert entry["reasons"] == [
-            "PR is already merged; merge-packet readiness is obsolete",
-        ]
+        assert entry["reasons"][0] == "PR is already merged; merge-packet readiness is obsolete"
+        assert any("noop placeholders" in reason for reason in entry["reasons"])
         assert packet["admin_squash_order"] == []
         assert packet["human_risk_settlement_required"] == []
         assert packet["not_ready"] == []
@@ -4823,7 +6742,7 @@ class TestBuildQueueAndPacket:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_queue",
-            lambda limit: [_classify_pr(_make_pr(number=7447))],
+            lambda limit, repo_override=None: [_classify_pr(_make_pr(number=7447))],
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
@@ -4873,7 +6792,7 @@ class TestBuildQueueAndPacket:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_queue",
-            lambda limit: [_classify_pr(_make_pr(number=7466))],
+            lambda limit, repo_override=None: [_classify_pr(_make_pr(number=7466))],
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
@@ -4940,7 +6859,7 @@ class TestBuildQueueAndPacket:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_queue",
-            lambda limit: [_classify_pr(_make_pr(number=7466))],
+            lambda limit, repo_override=None: [_classify_pr(_make_pr(number=7466))],
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
@@ -5412,6 +7331,10 @@ class TestCommandDispatch:
                 "openai",
                 "--author",
                 "an0mium",
+                "--reviewer-timeout",
+                "90",
+                "--overall-timeout",
+                "150",
                 "--json",
             ]
         )
@@ -5420,6 +7343,8 @@ class TestCommandDispatch:
         assert ns_collect.pr == 6280
         assert ns_collect.reviewers == ["claude", "openai"]
         assert ns_collect.author == "an0mium"
+        assert ns_collect.reviewer_timeout == 90.0
+        assert ns_collect.overall_timeout == 150.0
         assert ns_collect.apply is False
         assert ns_collect.json_output is True
         # run invocation parses
@@ -5499,7 +7424,12 @@ class TestCommandDispatch:
         assert ns.action == "admin_squash_merge"
         assert ns.reason == "operator authorized exact-head merge"
         assert ns.apply_post_merge_lane_audit is True
-        assert ns.json_output is True
+        # The main CLI routes record-settlement through the shared helper
+        # registration, so --json maps to the helper's dest ("json"); the
+        # dispatch handler accepts either dest.
+        assert ns.json is True
+        assert ns.post_github_status is False
+        assert ns.github_status_context == "aragora/human-settlement"
 
     def test_top_level_parser_registers_evidence_lint(self) -> None:
         from aragora.cli.parser import build_parser
@@ -6568,6 +8498,7 @@ class TestSettlementHelpers:
                 machine_recommendation_reason="clean",
                 packet_sha="sha256:test",
                 generated_at="2026-04-28T00:00:00+00:00",
+                merge_state_status="CLEAN",
                 model_review_quorum={
                     "tier": 0,
                     "tier_name": "tier_0_docs_tests_status",
@@ -6583,7 +8514,10 @@ class TestSettlementHelpers:
                 },
             )
 
-        monkeypatch.setattr("aragora.cli.commands.review_queue._build_queue", lambda limit: queue)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_queue",
+            lambda limit, repo_override=None: queue,
+        )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_packet",
             _fake_build_packet,
@@ -6832,3 +8766,154 @@ class TestSettlementHelpers:
         )
         rc = cmd_review_queue(ns)
         assert rc == 2
+
+
+def test_quorum_evidence_is_tier4_merge_authority():
+    """quorum_evidence.py (the evidence composer/classifier) must classify Tier-4."""
+    from aragora.cli.commands.review_queue import (
+        TIER_4_PREFIXES,
+        _classify_model_review_tier,
+        _matches_prefix,
+    )
+
+    assert "aragora/swarm/quorum_evidence.py" in TIER_4_PREFIXES
+    assert _matches_prefix("aragora/swarm/quorum_evidence.py", TIER_4_PREFIXES) is True
+    # Behavioral: a changeset touching it classifies Tier 4 (not auto-settleable Tier-2).
+    tier, _verdict, _reason = _classify_model_review_tier(["aragora/swarm/quorum_evidence.py"])
+    assert tier == 4
+    # And the serialized mirror used by the merge train stays in sync (CI guard).
+    from scripts.tier4_merge_train import SERIALIZED_TIER4_PREFIXES
+
+    assert "aragora/swarm/quorum_evidence.py" in SERIALIZED_TIER4_PREFIXES
+
+
+def test_tier_requirement_is_tiered_for_low_tiers():
+    # Tiered gate: Tier 1-2 settle on ONE western-frontier model signal (claude/
+    # openai) + dogfood; Tier 3-4 retain the full two-family gate + settlement.
+    from aragora.cli.commands.review_queue import _tier_requirement
+
+    for tier in (1, 2):
+        req = _tier_requirement(tier)
+        assert req["required_model_signals"] == 1, tier
+        assert req["requires_western_frontier_signal"] is True, tier
+        assert req["requires_adversarial_dogfood"] is True, tier
+        assert req["requires_human_risk_settlement"] is False, tier
+
+    for tier in (3, 4):
+        req = _tier_requirement(tier)
+        assert req["required_model_signals"] == 2, tier
+        assert req["requires_western_frontier_signal"] is False, tier
+        assert req["requires_human_risk_settlement"] is True, tier
+
+    tier0 = _tier_requirement(0)
+    assert tier0["required_model_signals"] == 1
+    assert tier0["requires_western_frontier_signal"] is False
+
+
+def test_western_frontier_families_match_quorum_evidence():
+    # The WF allowlist now has a SINGLE canonical definition in quorum_evidence,
+    # re-exported by review_queue. Assert object IDENTITY (not just equality) so the
+    # merge-gate and the auto-settle path can never drift — the duplication that the
+    # old parity guard merely policed is gone (claude #8507 P2).
+    from aragora.cli.commands.review_queue import WESTERN_FRONTIER_FAMILIES as rq_wf
+    from aragora.swarm.quorum_evidence import WESTERN_FRONTIER_FAMILIES as qe_wf
+
+    assert rq_wf is qe_wf
+    assert rq_wf == frozenset({"claude", "openai"})
+
+
+def test_western_frontier_signal_set_is_subset_of_counted():
+    # The WF check derives from model-review signals ONLY (empty dogfood), while
+    # signal_count derives from the dogfood-inclusive set. Pin the structural
+    # invariant claude #8507 P2 relies on: the signal-only set is always a subset of
+    # the counted set, so a WF signal that satisfies the requirement is also counted —
+    # the two derivations can never grant WF without counting it.
+    from aragora.cli.commands.review_queue import _counted_model_reviewer_ids
+
+    reviewer_signals = [{"model_family": "claude"}]
+    dogfood_evidence = [{"model_family": "grok"}]
+
+    signal_only = set(_counted_model_reviewer_ids(reviewer_signals, []))
+    counted = set(_counted_model_reviewer_ids(reviewer_signals, dogfood_evidence))
+
+    assert signal_only == {"claude"}
+    assert counted == {"claude", "grok"}
+    assert signal_only <= counted  # dogfood only ADDS ids; never removes a signal
+    assert "grok" not in signal_only  # dogfood-only id cannot satisfy the WF check
+
+
+def test_tier_two_lone_non_western_frontier_signal_omits_misleading_count():
+    # A lone grok signal meets the 1-signal count at Tier 2 but grok is not a
+    # western-frontier family. The real blocker is the WF requirement, so the
+    # reasons must NOT print the self-contradictory "1/1 signal(s)" line; they
+    # must name the western-frontier requirement instead.
+    pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+    pr["comments"] = [
+        {
+            "author": {"login": "an0mium"},
+            "body": "## Grok independent model review\nVerdict: approve.",
+        },
+    ]
+    quorum = _build_model_review_quorum(
+        pr=pr,
+        files=["aragora/cli/commands/swarm.py"],
+        protocol={"status": "metadata_heuristic"},
+        machine_recommendation="approve_candidate",
+        has_pending=False,
+        has_failures=False,
+    )
+    assert quorum["tier"] == 2
+    assert quorum["counted_reviewer_ids"] == ["grok"]
+    assert quorum["has_western_frontier_signal"] is False
+    assert quorum["status"] == "needs_model_review_quorum"
+    reasons = quorum["reasons"]
+    assert any("western-frontier" in r for r in reasons)
+    assert not any("signal(s)" in r for r in reasons)
+
+
+@pytest.fixture(autouse=True)
+def _enable_tiered_gate(monkeypatch):
+    # This module exercises the opt-in tiered merge gate, so enable it by default.
+    # The production default is OFF (strict 2-distinct-family); the strict-default
+    # test below sets ARAGORA_ENABLE_TIERED_MERGE_GATE="0" explicitly.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+
+
+def test_tier_requirement_strict_when_flag_off(monkeypatch):
+    # Production default: the tiered relaxation is OFF, so Tier 1-2 keep the full
+    # two-signal bar and impose no western-frontier requirement. Tier 0 preserves
+    # current-main one-signal behavior.
+    from aragora.cli.commands.review_queue import _tier_requirement
+
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+    tier0 = _tier_requirement(0)
+    assert tier0["required_model_signals"] == 1
+    assert tier0["requires_western_frontier_signal"] is False
+    for tier in (1, 2):
+        req = _tier_requirement(tier)
+        assert req["required_model_signals"] == 2, tier
+        assert req["requires_western_frontier_signal"] is False, tier
+
+
+def test_tier_requirement_matches_shared_rule(monkeypatch):
+    # The merge gate (_tier_requirement) and the shared tier_quorum_rule (used by
+    # the auto-settle path's has_supportive_quorum) must agree on signals + WF for
+    # every tier under both flag states, so the two gate halves cannot drift.
+    from aragora.cli.commands.review_queue import _tier_requirement
+    from aragora.swarm.quorum_evidence import tier_quorum_rule
+
+    for flag in ("0", "1"):
+        monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", flag)
+        for tier in (0, 1, 2, 3, 4):
+            req = _tier_requirement(tier)
+            rule = tier_quorum_rule(tier, tiered_gate=(flag == "1"))
+            assert req["required_model_signals"] == rule.required_signals, (tier, flag)
+            assert req["requires_western_frontier_signal"] == rule.requires_western_frontier, (
+                tier,
+                flag,
+            )
+            assert req["western_only_counted"] == rule.western_only_counted, (tier, flag)
+            assert req["requires_at_least_one_western"] == rule.requires_at_least_one_western, (
+                tier,
+                flag,
+            )

@@ -11,7 +11,7 @@ execute a structured hardening backlog against the rest of the codebase.
 ## Related Documents
 
 - **Execution gating policy:** defined in the phase gates below, especially
-  [Phase 0A](#phase-0a-prove-governance) and [Phase 0B](#phase-0b-prove-verified-execution)
+  [Phase 0A](#phase-0a-prove-governance-current-phase) and [Phase 0B](#phase-0b-prove-verified-execution)
 - **First evidence report:**
   [`docs/plans/2026-03-10-campaign-validated.md`](2026-03-10-campaign-validated.md)
 - **Phase 0A surviving manifests:**

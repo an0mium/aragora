@@ -30,7 +30,11 @@ def _load_cycle() -> Any:
 cycle = _load_cycle()
 
 
-def _posted_run(record_trail: Any) -> dict[str, Any]:
+def _posted_run(
+    record_trail: Any,
+    *,
+    allow_legacy_apply: bool = True,
+) -> dict[str, Any]:
     return cycle.run_cycle(
         list_prs=lambda: [{"number": 7, "isDraft": False, "statusCheckRollup": []}],
         fetch_packet=lambda pr: {
@@ -51,6 +55,7 @@ def _posted_run(record_trail: Any) -> dict[str, Any]:
         max_scan=5,
         budget_seconds=60.0,
         breaker_threshold=3,
+        allow_legacy_apply=allow_legacy_apply,
         log=lambda _line: None,
     )
 
@@ -60,6 +65,17 @@ def test_posted_evidence_records_trail_intent() -> None:
     summary = _posted_run(lambda pr, families: seen.append((pr, families)))
     assert summary["posted_prs"] == [7]
     assert seen == [(7, ["grok", "mistral"])]
+
+
+def test_legacy_apply_without_override_records_no_trail_intent() -> None:
+    seen: list[tuple[int, list[str]]] = []
+    summary = _posted_run(
+        lambda pr, families: seen.append((pr, families)),
+        allow_legacy_apply=False,
+    )
+    assert summary["legacy_apply_refused"] is True
+    assert summary["posted_prs"] == []
+    assert seen == []
 
 
 def test_default_record_trail_appends_when_enabled(tmp_path: Path, monkeypatch: Any) -> None:

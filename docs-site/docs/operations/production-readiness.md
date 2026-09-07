@@ -226,7 +226,7 @@ XAI_API_KEY=xai-xxx
 **Verification Commands:**
 ```bash
 # Check if TRUE RLM is available
-python -c "from aragora.rlm import HAS_OFFICIAL_RLM; print(f'TRUE RLM: \{HAS_OFFICIAL_RLM\}')"
+python -c "from aragora.rlm import HAS_OFFICIAL_RLM; print(f'TRUE RLM: {HAS_OFFICIAL_RLM}')"
 # Expected: TRUE RLM: True
 
 # Check server logs after startup
@@ -235,7 +235,7 @@ docker logs aragora 2>&1 | grep -E "RLM Factory|TRUE RLM|compression fallback"
 # NOT Expected: [RLM Factory] Created AragoraRLM with compression fallback
 
 # Verify rlm package is installed
-pip show rlm || echo "RLM package not installed - install with: pip install '.[rlm]'"
+python -c "import aragora.rlm" 2>/dev/null || echo "RLM not importable - reinstall the base package: pip install -e ."
 ```
 
 **Why TRUE RLM Matters:**
@@ -244,9 +244,9 @@ pip show rlm || echo "RLM package not installed - install with: pip install '.[r
 - TRUE RLM significantly improves knowledge retrieval quality in production workloads
 
 **Troubleshooting:**
-- If `HAS_OFFICIAL_RLM` is `False`: Ensure the `rlm` extra is in your pip install command
-- Docker builds: Verify `.[rlm]` is included in the Dockerfile pip install line
-- Lightsail/EC2: Ensure setup scripts include `pip install -e ".[rlm]"`
+- If `HAS_OFFICIAL_RLM` is `False`: Install the official RLM package with `pip install rlm`
+- Docker builds: Verify `pip install -e .` is included in the Dockerfile pip install line
+- Lightsail/EC2: Ensure setup scripts include `pip install -e .`
 
 ### 10. Resource Limits
 
@@ -276,7 +276,7 @@ resources:
 | **Backup schedule configured** | [ ] | Check cron jobs |
 | **Backup retention policy** | [ ] | Document: ___ days |
 | **Restore procedure tested** | [ ] | Document last test: ______ |
-| **Rollback procedure documented** | [ ] | See [DISASTER_RECOVERY.md](./disaster-recovery-runbook) |
+| **Rollback procedure documented** | [ ] | See [DISASTER_RECOVERY.md](../deployment/disaster-recovery) |
 | **Incident response plan** | [ ] | See [RUNBOOK.md](./runbook) |
 
 ---
@@ -519,7 +519,7 @@ kubectl scale deployment aragora --replicas=3 -n aragora
 ## Related Documentation
 
 - [RUNBOOK.md](./runbook) - Operational procedures and incident response
-- [DISASTER_RECOVERY.md](./disaster-recovery-runbook) - Recovery procedures
+- [DISASTER_RECOVERY.md](../deployment/disaster-recovery) - Recovery procedures
 - [ENVIRONMENT.md](../getting-started/environment) - Complete environment variable reference
 - [DEPLOYMENT.md](../deployment/overview) - Kubernetes and Docker deployment guides
 - [SECURITY.md](../security/overview) - Security architecture and practices

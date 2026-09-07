@@ -266,7 +266,7 @@ Admin endpoints require authentication via JWT tokens with admin role claims.
 // Example: Fetch with auth header
 const response = await fetch('/api/admin/users', {
   headers: {
-    'Authorization': `Bearer $\{accessToken\}`,
+    'Authorization': `Bearer ${accessToken}`,
   },
 });
 ```

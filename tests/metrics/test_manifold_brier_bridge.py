@@ -1,4 +1,4 @@
-"""Tests for aragora.metrics.manifold_brier_bridge — AGT-03 sub-deliverable 2."""
+"""Tests for aragora.evaluation.manifold_brier_bridge — AGT-03 sub-deliverable 2."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from aragora.metrics.manifold_brier import ManifoldBrierScorer
-from aragora.metrics.manifold_brier_bridge import (
+from aragora.evaluation.manifold_brier import ManifoldBrierScorer
+from aragora.evaluation.manifold_brier_bridge import (
     PendingPrediction,
     ResolutionEventProtocol,
     batch_record_resolutions,

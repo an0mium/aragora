@@ -106,7 +106,7 @@ from .rate_limit import (
     get_tier_rate_limiter,
     rate_limit,
 )
-from .request_logging import (
+from aragora.observability.middleware.request_logging import (
     REQUEST_ID_HEADER,
     RequestContext,
     generate_request_id,
@@ -192,7 +192,7 @@ from .token_revocation import (
 from .token_revocation import (
     hash_token as hash_token_for_revocation,
 )
-from .tracing import (
+from aragora.observability.middleware.tracing import (
     PARENT_SPAN_HEADER,
     SPAN_ID_HEADER,
     TRACE_ID_HEADER,
@@ -210,7 +210,7 @@ from .tracing import (
     trace_websocket_event,
     traced,
 )
-from .tracing import (
+from aragora.observability.middleware.tracing import (
     generate_trace_id as generate_new_trace_id,
 )
 from .versioning import (

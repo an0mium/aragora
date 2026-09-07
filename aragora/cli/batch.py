@@ -16,10 +16,6 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import httpx
-
-from aragora.security.safe_http import safe_get, safe_post
-
 if TYPE_CHECKING:
     from aragora.core import DebateResult
 
@@ -156,6 +152,13 @@ def _read_input_file(input_path: Path) -> list[dict[str, Any]]:
 
 def _batch_via_server(items: list[dict[str, Any]], args: argparse.Namespace) -> None:
     """Submit batch to server API."""
+    # Deferred imports: httpx (and the safe_http wrapper) are optional runtime
+    # deps. Importing them lazily keeps the batch subparser registrable on a
+    # base install that lacks httpx.
+    import httpx
+
+    from aragora.security.safe_http import safe_post
+
     server_url = args.url.rstrip("/")
 
     print(f"\nSubmitting to {server_url}/api/debates/batch...")
@@ -205,6 +208,8 @@ def _batch_via_server(items: list[dict[str, Any]], args: argparse.Namespace) -> 
 
 def _poll_batch_status(server_url: str, batch_id: str, token: str | None = None) -> None:
     """Poll batch status until completion."""
+    from aragora.security.safe_http import safe_get
+
     poll_interval = 5  # seconds
     max_polls = 360  # 30 minutes max
 

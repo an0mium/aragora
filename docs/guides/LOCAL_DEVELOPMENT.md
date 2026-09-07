@@ -65,7 +65,7 @@ Offline mode uses SQLite and in-memory stores with demo data, requiring no
 external services or API keys:
 
 ```bash
-python -m aragora.server --offline
+aragora serve --demo
 ```
 
 This sets `ARAGORA_OFFLINE=true`, `ARAGORA_DEMO_MODE=true`, and
@@ -75,13 +75,13 @@ This sets `ARAGORA_OFFLINE=true`, `ARAGORA_DEMO_MODE=true`, and
 
 ```bash
 # HTTP API on :8080, WebSocket on :8765
-python -m aragora.server --port 8765 --http-port 8080
+aragora serve --ws-port 8765 --api-port 8080
 
 # Bind to all interfaces (for testing from other devices)
-python -m aragora.server --host 0.0.0.0
+aragora serve --host 0.0.0.0
 
 # Multi-worker production mode
-python -m aragora.server --workers 4 --host 0.0.0.0
+aragora serve --workers 4 --host 0.0.0.0
 ```
 
 The HTTP API is available at `http://localhost:8080/api/` and WebSocket
@@ -212,10 +212,10 @@ packages like `redis`, `z3`, or `sentence-transformers`, install the relevant
 extras:
 
 ```bash
-pip install -e ".[redis]"          # Redis support
-pip install -e ".[ml]"             # scikit-learn, sentence-transformers
-pip install -e ".[observability]"  # OpenTelemetry, Prometheus
-pip install -e ".[documents]"     # PDF, DOCX, XLSX parsing
+pip install redis                  # Redis support
+pip install scikit-learn sentence-transformers  # ML support
+pip install opentelemetry-sdk prometheus-client  # OpenTelemetry, Prometheus
+pip install pypdf python-docx openpyxl  # PDF, DOCX, XLSX parsing
 ```
 
 ### Telegram/connector collection errors
@@ -225,5 +225,5 @@ The Telegram connector test file has a pre-existing collection error. Use
 
 ### Server won't start without API keys
 
-Use `--offline` mode for local development without any API keys configured.
+Use `--demo` mode for local development without any API keys configured.
 This provides demo data and SQLite storage.

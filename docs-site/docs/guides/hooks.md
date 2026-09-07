@@ -57,7 +57,7 @@ hooks:
     action:
       handler: aragora.hooks.builtin.log_event
       args:
-        message: "Debate \{debate_id\} complete: confidence={confidence:.2%}"
+        message: "Debate {debate_id} complete: confidence={confidence:.2%}"
         level: info
 ```
 

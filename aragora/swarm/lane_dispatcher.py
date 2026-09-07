@@ -58,6 +58,8 @@ Assigned lane: PR #{pr} (branch {branch}) in {repo} ONLY.
 --owner-session {session_id} \
 --pr-number {pr} --branch {branch} --source {target_agent} --status active \
 --next-action "advance #{pr}"
+   If the claim command exits non-zero, print "yielding: claim blocked" and \
+STOP -- do not work this PR.
 
 2. GROUND from live state for #{pr} ONLY (gh pr view/checks; \
 review-queue merge-packet --pr {pr} --json). Trust live state, never memory.

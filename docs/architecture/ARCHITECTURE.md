@@ -1,5 +1,12 @@
 # Aragora Architecture
 
+> **Intent charter:** Where code *belongs* — layer model, per-concern authority modules,
+> and the chartered-removals registry — is defined by
+> [`docs/architecture/INTENDED_ARCHITECTURE.md`](INTENDED_ARCHITECTURE.md)
+> (machine encoding: [`charters.yaml`](charters.yaml)). Once RATIFIED, that charter
+> supersedes this document where they conflict; while DRAFT, see its Binding status block.
+> This file remains a descriptive overview.
+
 > **Last Updated:** 2026-04-24
 >
 > **Scope:** This document is a hand-curated overview of the **core debate-engine subsystems** (agents, debate, reasoning, verification, memory, evolution, connectors, server, RLM, ops, persistence) — about 13 of the ~169 packages in `aragora/`. For the **full module index** (every package, with one-line descriptions), see [`CLAUDE.md`](../../CLAUDE.md). For per-track deep dives, see the other documents in `docs/architecture/`.
@@ -174,7 +181,7 @@ aragora/
 │   └── public/            # Static assets
 │
 ├── server/                 # WebSocket/HTTP server
-│   ├── unified_server.py  # Unified server (3,100+ API operations across 2,900+ paths)
+│   ├── unified_server.py  # Unified server (operation/path counts: docs/METRICS.md)
 │   ├── handlers/          # Request handlers by domain
 │   │   ├── base.py        # BaseHandler, ttl_cache decorator
 │   │   ├── debates.py     # Debate CRUD and exports
@@ -750,10 +757,12 @@ Critical operations use explicit transactions:
 
 - **Debate latency**: 2-5 seconds per round (depends on agent response time)
 - **Memory tiers**: Fast (1min TTL), Medium (1hr), Slow (1day), Glacial (1week)
-- **Test coverage**: 210,000+ tests across 5,000+ test files
 - **Type safety**: 250+ modules in strict mypy mode
-- **Source modules**: 3,800+ Python modules
 - **Storage tests**: 4,300+ tests across all backends including KM (Phase A2)
-- **API surface**: 3,100+ API operations across 2,900+ paths
-- **SDK breadth**: 185 Python / 183 TypeScript SDK namespaces
-- **KM adapters**: 42 registered adapters (see `aragora/knowledge/mound/adapters/`)
+- **SDK breadth**: Python and TypeScript SDKs (module counts in `docs/METRICS.md`)
+<!-- metrics:begin architecture-scale -->
+- **Test coverage**: 226,053 tests across 5,551 test files
+- **Source files**: 4,310 Python files under `aragora/`
+- **API surface**: 3,205 API operations across 2,912 paths
+- **KM adapters**: 41 registered adapters (see `aragora/knowledge/mound/adapters/`)
+<!-- metrics:end -->

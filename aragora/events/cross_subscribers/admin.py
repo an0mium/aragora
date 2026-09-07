@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Import metrics (optional - graceful fallback)
 try:
-    from aragora.server.prometheus_cross_pollination import (
+    from aragora.observability.prometheus_cross_pollination import (
         set_circuit_breaker_state as _set_circuit_breaker_state,
     )
 

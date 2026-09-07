@@ -708,7 +708,7 @@ class TestListFiles:
 
         async def list_files_gen(path):
             raise ConnectionError("network failure")
-            yield  # noqa: unreachable
+            yield
 
         mock_connector.list_files = list_files_gen
         del mock_connector.list_folders

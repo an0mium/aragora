@@ -21,8 +21,8 @@ DETAILED, SUMMARY, ABSTRACT, METADATA). Functional, but not true RLM.
 ## Installation
 
 ```bash
-# With true RLM support
-pip install aragora[rlm]
+# With TRUE RLM support (installs the official `rlm` package)
+pip install aragora rlm
 
 # Verify
 python -c "from aragora.rlm import HAS_OFFICIAL_RLM; print(HAS_OFFICIAL_RLM)"

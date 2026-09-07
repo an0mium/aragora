@@ -735,18 +735,30 @@ class TestInitCrossSubscriberBridge:
         assert result is None
 
     def test_creates_arena_event_bridge(self, mock_arena_bridge_module):
-        """When event_bus provided, create bridge."""
+        """When event_bus provided, create bridge against a bootstrapped manager."""
         from aragora.debate.orchestrator_memory import init_cross_subscriber_bridge
 
         mock_bus = MagicMock()
         mock_bridge = MagicMock()
+        mock_manager = MagicMock()
         mock_arena_bridge_module.ArenaEventBridge.return_value = mock_bridge
 
-        with patch.dict(sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}):
+        with (
+            patch.dict(sys.modules, {"aragora.debate.arena_bridge": mock_arena_bridge_module}),
+            patch(
+                "aragora.debate.event_subscribers.bootstrap_debate_event_subscribers",
+                return_value=mock_manager,
+            ),
+        ):
             result = init_cross_subscriber_bridge(event_bus=mock_bus)
 
         assert result == mock_bridge
-        mock_arena_bridge_module.ArenaEventBridge.assert_called_once_with(mock_bus)
+        # Must bridge against the bootstrapped manager, not the bare
+        # get_cross_subscriber_manager() accessor ArenaEventBridge falls
+        # back to (P4a E8 SCOPE #1).
+        mock_arena_bridge_module.ArenaEventBridge.assert_called_once_with(
+            mock_bus, cross_manager=mock_manager
+        )
 
     def test_connects_to_cross_subscribers(self, mock_arena_bridge_module):
         """Bridge connects to cross subscribers."""
@@ -756,7 +768,7 @@ class TestInitCrossSubscriberBridge:
         mock_bridge = MagicMock()
         mock_arena_bridge_module.ArenaEventBridge.return_value = mock_bridge
 
-        with patch.dict(sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}):
+        with patch.dict(sys.modules, {"aragora.debate.arena_bridge": mock_arena_bridge_module}):
             init_cross_subscriber_bridge(event_bus=mock_bus)
 
         mock_bridge.connect_to_cross_subscribers.assert_called_once()
@@ -767,7 +779,7 @@ class TestInitCrossSubscriberBridge:
 
         mock_bus = MagicMock()
 
-        with patch.dict(sys.modules, {"aragora.events.arena_bridge": None}):
+        with patch.dict(sys.modules, {"aragora.debate.arena_bridge": None}):
             result = init_cross_subscriber_bridge(event_bus=mock_bus)
 
         assert result is None
@@ -781,7 +793,7 @@ class TestInitCrossSubscriberBridge:
         mock_bridge.connect_to_cross_subscribers.side_effect = AttributeError("No attr")
         mock_arena_bridge_module.ArenaEventBridge.return_value = mock_bridge
 
-        with patch.dict(sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}):
+        with patch.dict(sys.modules, {"aragora.debate.arena_bridge": mock_arena_bridge_module}):
             result = init_cross_subscriber_bridge(event_bus=mock_bus)
 
         assert result is None

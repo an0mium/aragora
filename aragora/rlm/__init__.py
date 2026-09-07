@@ -17,10 +17,7 @@ directly but should instead be treated as part of the environment that the LLM
 can symbolically interact with."
 
 Installation:
-    # Install with real RLM support
-    pip install aragora[rlm]
-
-    # Or install the official library directly
+    # Install the official RLM library for real RLM support
     pip install rlm
 
 Usage with Real RLM:

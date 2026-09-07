@@ -414,7 +414,8 @@ class PostgreSQLBackend(DatabaseBackend):
             with conn.cursor() as cursor:
                 cursor.executemany(sql, params_list)
 
-    def convert_placeholder(self, sql: str) -> str:
+    @staticmethod
+    def convert_placeholder(sql: str) -> str:
         """Convert SQLite ? placeholders to PostgreSQL %s."""
         # Simple conversion - doesn't handle ? inside strings
         return sql.replace("?", "%s")

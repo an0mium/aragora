@@ -104,6 +104,7 @@ def _run(
     packets: dict[int, dict[str, Any]],
     *,
     apply: bool = False,
+    allow_legacy_apply: bool = True,
     max_prs: int = 3,
     max_scan: int = 30,
     budget_seconds: float = 1200.0,
@@ -112,6 +113,7 @@ def _run(
     clock: Any = None,
     breaker_threshold: int = 3,
     write_routing_record: Any = None,
+    families: tuple[str, ...] | None = None,
 ) -> tuple[dict[str, Any], CollectRecorder, ReconcilerRecorder]:
     collect = collect or CollectRecorder()
     reconciler = reconciler or ReconcilerRecorder()
@@ -133,7 +135,9 @@ def _run(
         budget_seconds=budget_seconds,
         breaker_threshold=breaker_threshold,
         write_routing_record=write_routing_record,
+        allow_legacy_apply=allow_legacy_apply,
         clock=(lambda: next(ticks) * 0.001) if clock is None else clock,
+        **({} if families is None else {"families": families}),
     )
     summary["_packet_calls"] = packet_calls
     return summary, collect, reconciler
@@ -400,6 +404,22 @@ def test_partial_post_is_a_failure() -> None:
     assert reconciler.calls == 0
 
 
+def test_run_cycle_apply_refuses_without_legacy_override_flag() -> None:
+    collect = CollectRecorder()
+    summary, rec_collect, reconciler = _run(
+        [_pr(1)],
+        {1: _entry(1)},
+        apply=True,
+        allow_legacy_apply=False,
+        collect=collect,
+    )
+
+    assert summary["legacy_apply_refused"] is True
+    assert summary["exit_code"] == cycle.EXIT_FAILURES
+    assert rec_collect.calls == []
+    assert reconciler.calls == 0
+
+
 # --- Secrets guard --------------------------------------------------------------
 
 
@@ -411,6 +431,30 @@ def test_sanitized_env_forces_secrets_off(monkeypatch: Any) -> None:
     env = cycle._sanitized_env()
     assert env["ARAGORA_SECRETS_STRICT"] == "false"
     assert env["ARAGORA_USE_SECRETS_MANAGER"] == "false"
+
+
+def test_main_apply_refuses_without_legacy_override(monkeypatch: Any, capsys: Any) -> None:
+    monkeypatch.delenv(cycle.LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV, raising=False)
+
+    rc = cycle.main(["--apply"])
+
+    assert rc == cycle.EXIT_FAILURES
+    err = capsys.readouterr().err
+    assert "legacy direct auto-evidence apply is disabled" in err
+    assert cycle.LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV in err
+
+
+def test_main_apply_with_legacy_override_can_reach_cycle(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    monkeypatch.setenv(cycle.LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV, "1")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(cycle, "default_list_prs", lambda repo: [])
+
+    rc = cycle.main(["--apply", "--repo", "owner/repo", "--no-routing-records"])
+
+    assert rc == cycle.EXIT_OK
+    assert '"plan": "empty"' in capsys.readouterr().out
 
 
 # --- Result parsing --------------------------------------------------------------
@@ -604,6 +648,7 @@ def _run_with_dogfood(
         max_scan=30,
         budget_seconds=1200.0,
         breaker_threshold=3,
+        allow_legacy_apply=True,
         clock=lambda: next(ticks) * 0.001,
     )
     return summary, dogfood, reconciler
@@ -733,7 +778,14 @@ def test_routing_record_fields_are_honest() -> None:
             }
         }
     )
-    _run([_pr(1)], {1: _entry(1, tier=1)}, apply=True, collect=collect, write_routing_record=writer)
+    _run(
+        [_pr(1)],
+        {1: _entry(1, tier=1)},
+        apply=True,
+        collect=collect,
+        write_routing_record=writer,
+        families=("claude", "grok"),
+    )
     (record,) = writer.records
     assert record["record_type"] == "routing_rationale"
     assert record["schema"] == cycle.ROUTING_RECORD_SCHEMA

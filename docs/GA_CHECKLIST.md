@@ -65,13 +65,13 @@ This checklist tracks all items required before declaring Aragora self-hosted GA
 - [x] **Docker Compose** - Production-ready with profiles (monitoring, workers)
 - [x] **Kubernetes manifests** - HPA, health probes, external secrets
 - [x] **TLS documentation** - Traefik and Nginx reverse proxy guides
-- [x] **Offline mode** - `aragora serve --offline` for air-gapped environments
+- [x] **Offline mode** - `aragora serve --demo` for air-gapped environments
 - [x] **Upgrade runbook** - Database migrations, rollback procedures
 - [x] **Production hardening checklist** - In `docs/DEPLOYMENT.md`
 
 ## Testing
 
-- [x] **Test suite** - 210,000+ tests across 5,000+ files
+- [x] **Test suite** - extensive coverage (canonical counts in `docs/METRICS.md`)
 - [x] **Handler tests** - 19,776 tests, 0 failures across randomized seeds
 - [x] **CI pipeline** - GitHub Actions with path-based triggers
 - [x] **Randomized ordering** - Seeds 12345, 54321, 99999 all pass

@@ -203,9 +203,9 @@ interface Props {
 export function Component({ title, onAction }: Props) {
   return (
     <div className="p-4 border border-acid-green/30">
-      <h2 className="text-lg font-mono">\{title\}</h2>
+      <h2 className="text-lg font-mono">{title}</h2>
       {onAction && (
-        <button onClick=\{onAction\} aria-label={`Action for $\{title\}`}>
+        <button onClick={onAction} aria-label={`Action for ${title}`}>
           Click
         </button>
       )}

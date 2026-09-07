@@ -140,7 +140,20 @@ fi
 echo "Latest backup: $LATEST_BACKUP"
 
 # 2. Verify backup age (should be < 24 hours old)
-BACKUP_AGE=$(( ($(date +%s) - $(stat -f %m "$BACKUP_DIR/$LATEST_BACKUP")) / 3600 ))
+backup_mtime() {
+    mtime=$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || true)
+    case "$mtime" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    printf '%s\n' "$mtime"
+}
+
+BACKUP_PATH="$BACKUP_DIR/$LATEST_BACKUP"
+BACKUP_MTIME=$(backup_mtime "$BACKUP_PATH") || {
+    echo "ERROR: Could not read backup mtime: $BACKUP_PATH"
+    exit 1
+}
+BACKUP_AGE=$(( ($(date +%s) - BACKUP_MTIME) / 3600 ))
 if [ $BACKUP_AGE -gt 24 ]; then
     echo "WARNING: Backup is $BACKUP_AGE hours old!"
 fi
@@ -704,11 +717,9 @@ asyncio.run(check())
 
 # Recover specific job types
 python -c "
-from aragora.queue.workers import (
-    recover_interrupted_transcriptions,
-    recover_interrupted_gauntlets,
-    recover_interrupted_routing,
-)
+from aragora.queue.workers import recover_interrupted_transcriptions
+from aragora.server.workers.gauntlet_worker import recover_interrupted_gauntlets
+from aragora.server.workers.routing_worker import recover_interrupted_routing
 import asyncio
 
 async def recover():
@@ -843,14 +854,14 @@ Origin data (`aragora/server/debate_origin.py`) maps debates to their source (Sl
 
 **Scenario:** Multiple stale or failed consensus states
 
-The consensus healing worker (`aragora/queue/workers/consensus_healing_worker.py`) automatically identifies and heals problematic consensus states.
+The consensus healing worker (`aragora/memory/consensus_healing_worker.py`) automatically identifies and heals problematic consensus states.
 
 **Manual Healing:**
 
 ```bash
 # Start consensus healing with custom config
 python -c "
-from aragora.queue.workers import (
+from aragora.memory.consensus_healing_worker import (
     ConsensusHealingWorker,
     HealingConfig,
     HealingAction,
@@ -884,7 +895,7 @@ asyncio.run(heal())
 
 # Force archive old stale debates
 python -c "
-from aragora.queue.workers import get_consensus_healing_worker
+from aragora.memory.consensus_healing_worker import get_consensus_healing_worker
 import asyncio
 
 async def archive_stale():
@@ -947,11 +958,9 @@ Add to your application startup sequence:
 
 async def run_recovery_hooks():
     """Run automated recovery on startup."""
-    from aragora.queue.workers import (
-        recover_interrupted_transcriptions,
-        recover_interrupted_gauntlets,
-        recover_interrupted_routing,
-    )
+    from aragora.queue.workers import recover_interrupted_transcriptions
+    from aragora.server.workers.gauntlet_worker import recover_interrupted_gauntlets
+    from aragora.server.workers.routing_worker import recover_interrupted_routing
     from aragora.workflow.nodes.human_checkpoint import HumanCheckpointNode
 
     # Recover interrupted jobs
@@ -964,7 +973,7 @@ async def run_recovery_hooks():
     await checkpoint.recover_pending_approvals()
 
     # Start consensus healing (background)
-    from aragora.queue.workers import start_consensus_healing
+    from aragora.memory.consensus_healing_worker import start_consensus_healing
     await start_consensus_healing()
 ```
 

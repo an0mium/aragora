@@ -153,6 +153,26 @@ def test_drain_respects_max_launches(tmp_path: Path) -> None:
     assert len(_names(tmp_path, ls.PENDING)) == 1
 
 
+def test_drain_can_filter_to_newly_dispatched_work_orders(tmp_path: Path) -> None:
+    _write_pending(tmp_path, "lane-old")
+    _write_pending(tmp_path, "lane-new")
+    launched: list[str] = []
+
+    result = ls.drain_once(
+        root=tmp_path,
+        launch_fn=lambda wo: launched.append(wo["work_order_id"]),
+        max_launches=5,
+        work_order_ids={"lane-new"},
+    )
+
+    assert launched == ["lane-new"]
+    assert result.launched == ["lane-new"]
+    assert _names(tmp_path, ls.DONE) == {"lane-new.json"}
+    # Existing pending work stays pending; a combined conductor/supervisor pass
+    # must not unexpectedly launch stale backlog.
+    assert _names(tmp_path, ls.PENDING) == {"lane-old.json"}
+
+
 def test_drain_records_failure_and_continues(tmp_path: Path) -> None:
     _write_pending(tmp_path, "lane-1-a")
     _write_pending(tmp_path, "lane-2-boom")

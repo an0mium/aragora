@@ -1,0 +1,128 @@
+name: Publish aragora-verify to PyPI
+
+# Publishes the standalone receipt verifier (aragora-verify/) to PyPI so the
+# "anyone can verify, zero Aragora install" story is real (`pip install
+# aragora-verify`). Manual, confirmed, one-click.
+#
+# PREREQUISITE (one-time): configure PyPI trusted publishing for the
+# `aragora-verify` project — on PyPI, add a "pending publisher" for repo
+# synaptent/aragora, workflow `publish-aragora-verify.yml`, environment `pypi`.
+# Until that exists, the publish step will fail at the OIDC handshake (no code
+# change needed once configured).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0)'
+        required: true
+      confirm:
+        description: 'Type PUBLISH to confirm'
+        required: true
+
+# Least privilege at the top level; each job re-grants only what it needs.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: aragora
+    permissions:
+      contents: read  # checkout + run tests only; no OIDC, no write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify checkout integrity
+        uses: ./.github/actions/checkout-integrity
+
+      - name: Setup Python
+        uses: ./.github/actions/setup-python-safe
+        with:
+          python-version: "3.11"
+
+      - name: Test (zero Aragora dependency)
+        working-directory: aragora-verify
+        run: |
+          python -m pip install -e ".[dev]"
+          PYTHONPATH=src python -m pytest tests/ -q
+
+  publish:
+    needs: test
+    runs-on: aragora
+    # Gate on explicit confirmation AND the protected default branch, so a
+    # workflow_dispatch against any other ref can never reach PyPI even though
+    # the OIDC trusted publisher is scoped only to workflow + environment.
+    if: ${{ github.event.inputs.confirm == 'PUBLISH' && github.ref == 'refs/heads/main' }}
+    environment: pypi
+    permissions:
+      id-token: write  # PyPI trusted publishing (OIDC)
+      contents: write  # create the GitHub Release / tag
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify checkout integrity
+        uses: ./.github/actions/checkout-integrity
+
+      - name: Setup Python
+        uses: ./.github/actions/setup-python-safe
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: python -m pip install build twine
+
+      - name: Set version
+        working-directory: aragora-verify
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          python3 -c "import re,pathlib,os; p=pathlib.Path('pyproject.toml'); v=os.environ['VERSION']; assert re.fullmatch(r'[0-9A-Za-z.+-]+', v), 'bad version'; text,n=re.subn(r'(?m)^version = \"[^\"]*\"', f'version = \"{v}\"', p.read_text()); assert n==1, f'expected exactly one version line, rewrote {n}'; p.write_text(text)"
+          grep '^version' pyproject.toml | head -1
+
+      - name: Build
+        working-directory: aragora-verify
+        run: python -m build
+
+      - name: Check
+        working-directory: aragora-verify
+        run: twine check dist/*
+
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # v1.14.0 (pinned to commit)
+        with:
+          packages-dir: aragora-verify/dist/
+          verbose: true
+          attestations: false
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2 (pinned to commit)
+        with:
+          tag_name: aragora-verify-v${{ github.event.inputs.version }}
+          name: aragora-verify v${{ github.event.inputs.version }}
+          body: |
+            ## aragora-verify v${{ github.event.inputs.version }}
+
+            Standalone, offline verifier for Open Decision Receipts (ODR) — zero
+            Aragora dependency. Validate a receipt with nothing but the JSON:
+            schema conformance, RFC 8785 (JCS) canonical digest, Ed25519
+            signature, quorum consistency, and hash-chain linkage.
+
+            ```bash
+            pip install aragora-verify==${{ github.event.inputs.version }}
+            aragora-verify decision-receipt.odr.json
+            ```
+          draft: false
+          prerelease: ${{ contains(github.event.inputs.version, 'beta') || contains(github.event.inputs.version, 'alpha') || contains(github.event.inputs.version, 'rc') }}
+
+      # Runs AFTER the release on purpose. Both the upload and this check are
+      # downstream of an irreversible action: once the wheel is on PyPI the
+      # version is immutable and cannot be re-published. Gating the release on
+      # this check protected nobody — the package was already public — while a
+      # verification-infra flake (or ordinary index propagation lag) could
+      # strand a published version with no matching GitHub release and no clean
+      # rerun path. Ordering it last keeps a failure loud and actionable
+      # (the job still goes red) without leaving that inconsistent state.
+      - name: Verify public PyPI install
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: python3 scripts/verify_aragora_verify_publish.py --version "$VERSION" --json

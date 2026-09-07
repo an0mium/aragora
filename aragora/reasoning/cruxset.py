@@ -165,7 +165,16 @@ class CruxSet:
         receipt_id: str = "",
         provenance: dict[str, Any] | None = None,
         created_at: str | None = None,
+        schema_version: str | None = None,
     ) -> "CruxSet":
+        """Build a CruxSet, computing ``cruxset_id`` and ``checksum``.
+
+        ``schema_version`` defaults to :data:`CRUXSET_SCHEMA_VERSION`. Pass the
+        original value when *rebuilding* an existing set (e.g. enrichment) so a
+        deserialized older- or future-version set is not silently restamped with
+        the current version — ``from_dict`` preserves what it read, and a rebuild
+        must not quietly disagree with it.
+        """
         question_str = (question or "").strip()
         if not question_str:
             raise ValueError("question must be non-empty")
@@ -188,7 +197,7 @@ class CruxSet:
         # Build a draft and then compute the checksum over its canonical form.
         draft = cls(
             cruxset_id=cruxset_id,
-            schema_version=CRUXSET_SCHEMA_VERSION,
+            schema_version=schema_version or CRUXSET_SCHEMA_VERSION,
             question=question_str,
             decision=decision,
             cruxes=cruxes_sorted,
@@ -329,7 +338,9 @@ def build_cruxset_from_analysis(
     for entry in raw_cruxes[:max_cruxes]:
         if not isinstance(entry, dict):
             continue
-        positions = (
+        # Annotated variable-length: mypy otherwise infers tuple[CruxPosition]
+        # from this single-element literal and rejects the append below.
+        positions: tuple[CruxPosition, ...] = (
             CruxPosition(
                 side="for",
                 agents=(str(entry.get("author") or ""),),

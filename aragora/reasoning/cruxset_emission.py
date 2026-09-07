@@ -127,9 +127,84 @@ def maybe_emit_cruxset(
         return None
 
 
+def maybe_emit_cruxset_from_finder_result(
+    result: Any,
+    *,
+    receipt_id: str = "",
+    extra_provenance: dict[str, Any] | None = None,
+) -> CruxSet | None:
+    """Arena-path bridge for DIC-15: CruxFinderResult → CruxSet.
+
+    Converts the output of a ``consensus="crux_finder"`` debate run into the
+    DIC-15 :class:`~aragora.reasoning.cruxset.CruxSet` contract. Returns
+    ``None`` when emission is disabled (the default).
+
+    Call this after :func:`~aragora.debate.crux_mode.build_crux_finder_result`
+    to obtain the ranked, signed CruxSet that downstream receipt ingestion
+    (DIC-16) and the follow-up bridge (DIC-17) consume.
+
+    ``decision`` is always ``None`` — a crux-finder run never produces a
+    verdict by design. Provenance is seeded from ``result.debate_id`` and
+    can be extended via ``extra_provenance``.
+
+    Flag: ``ARAGORA_CRUXSET_EMISSION_ENABLED`` (default ``False``).
+    Live queue effect: none.
+    """
+    if not cruxset_emission_enabled():
+        return None
+
+    try:
+        from aragora.debate.crux_mode import CruxFinderResult  # lazy — avoids import cycle
+    except BaseException as exc:  # noqa: BLE001 - pyo3_runtime.PanicException is not an Exception
+        logger.warning(
+            "maybe_emit_cruxset_from_finder_result: could not import CruxFinderResult: %s", exc
+        )
+        return None
+
+    if not isinstance(result, CruxFinderResult):
+        logger.warning(
+            "maybe_emit_cruxset_from_finder_result: expected CruxFinderResult, got %s",
+            type(result).__name__,
+        )
+        return None
+
+    try:
+        metadata = result.metadata or {}
+        analysis = result.analysis
+        analysis_payload = analysis.to_dict()
+        cruxes = list(analysis.cruxes)
+        counterfactuals = list(result.counterfactuals or [])
+        provenance: dict[str, Any] = {
+            "debate_id": result.debate_id,
+            "mode": "crux_finder",
+            "approach": metadata.get("approach", "A"),
+            "rounds": result.rounds,
+            "agents": list(result.agents),
+        }
+    except Exception as exc:  # noqa: BLE001 - malformed finder output must fail closed
+        logger.warning("maybe_emit_cruxset_from_finder_result: malformed CruxFinderResult: %s", exc)
+        return None
+
+    if counterfactuals:
+        provenance["counterfactuals"] = counterfactuals
+    if extra_provenance:
+        # extra_provenance intentionally overwrites base keys — caller's responsibility
+        provenance.update(extra_provenance)
+
+    return maybe_emit_cruxset(
+        question=result.question,
+        analysis_payload=analysis_payload,
+        decision=None,  # crux_finder never produces a verdict by design
+        receipt_id=receipt_id,
+        provenance=provenance,
+        top_k=max(len(cruxes), 1),
+    )
+
+
 __all__ = [
     "CRUXSET_EMISSION_ENV_VAR",
     "cruxset_emission_enabled",
     "enable_cruxset_emission",
     "maybe_emit_cruxset",
+    "maybe_emit_cruxset_from_finder_result",
 ]

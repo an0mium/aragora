@@ -551,7 +551,7 @@ result = await arena.run()
 
 # Check probe results
 for agent_id, probe_results in result.probe_reports.items():
-    print(f"\{agent_id\}: {len(probe_results)} vulnerabilities found")
+    print(f"{agent_id}: {len(probe_results)} vulnerabilities found")
 ```
 
 ---

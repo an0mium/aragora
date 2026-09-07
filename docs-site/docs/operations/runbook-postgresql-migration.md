@@ -440,7 +440,7 @@ from aragora.storage.models import Debate
 
 with get_session() as session:
     count = session.query(Debate).count()
-    print(f'PostgreSQL debates: \{count\}')
+    print(f'PostgreSQL debates: {count}')
 "
 ```
 

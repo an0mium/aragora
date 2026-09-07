@@ -45,7 +45,7 @@ aragora auth create-key --name "my-dev-key"
 When running in offline/demo mode, authentication is optional:
 
 ```bash
-python -m aragora.server --http-port 8080 --ws-port 8765 --offline
+aragora serve --api-port 8080 --ws-port 8765 --demo
 ```
 
 ### Using your key

@@ -1,0 +1,96 @@
+{
+  "attestation": {
+    "disposition": "autonomous"
+  },
+  "claim": {
+    "statement": "Should we ship feature X?",
+    "verdict": "PASS"
+  },
+  "confidence": {
+    "calibration": {
+      "provenance_ref": {
+        "receipt_id": "r-123",
+        "type": "aragora.settlement_metadata"
+      },
+      "status": "present"
+    },
+    "scale": "unit_interval",
+    "status": "present",
+    "value": 0.875
+  },
+  "cruxes": {
+    "reason": "no crux set recorded for this decision (DecisionReceipt does not carry one; supply crux_set= from a CruxReceipt)",
+    "status": "absent"
+  },
+  "issued_at": "2026-06-11T12:00:00+00:00",
+  "odr_version": "0.1",
+  "profile": "https://aragora.ai/specs/open-decision-receipt/v0.1",
+  "quorum": {
+    "dissent": {
+      "dissenting_agents": [
+        "grok-agent"
+      ],
+      "present": true,
+      "views": [
+        "grok-agent: latency risk understated"
+      ]
+    },
+    "independence": {
+      "disclosed": true,
+      "distinct_model_families": 2,
+      "model_families": [
+        "anthropic",
+        "mistral"
+      ]
+    },
+    "method": "majority",
+    "participants": [
+      {
+        "agent": "claude-agent",
+        "model_family": "anthropic",
+        "model_id": "claude-opus-4"
+      },
+      {
+        "agent": "grok-agent",
+        "model_family": "undisclosed",
+        "model_id": "undisclosed"
+      },
+      {
+        "agent": "mistral-agent",
+        "model_family": "mistral",
+        "model_id": "mistral-large-2"
+      }
+    ],
+    "reached": true,
+    "status": "present",
+    "supporting_agents": [
+      "claude-agent",
+      "mistral-agent"
+    ]
+  },
+  "reasoning": {
+    "status": "present",
+    "summary": "Consensus reached with strong agreement"
+  },
+  "receipt_id": "r-123",
+  "routing": {
+    "status": "reserved"
+  },
+  "signatures": [],
+  "source": {
+    "artifact_hash": "f867986c6dd8d1fe78c7da7fd3f92d7e6e6f4ffd8e227ec987f1c23dfe931a2b",
+    "receipt_id": "r-123",
+    "schema": "aragora.gauntlet.DecisionReceipt",
+    "schema_version": "1.1",
+    "system": "aragora"
+  },
+  "subject": {
+    "digest": {
+      "alg": "sha-256",
+      "status": "present",
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "identifier": "g-456",
+    "summary": "Should we ship feature X?"
+  }
+}

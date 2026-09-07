@@ -23,11 +23,13 @@ def _make_event(event_type: str, data: dict) -> StreamEvent:
 
 
 def _get_handler():
-    """Get the workflow outcome handler from BasicHandlersMixin."""
-    from aragora.events.cross_subscribers.handlers.basic import BasicHandlersMixin
+    """Get the workflow outcome handler from KnowledgeEventSubscriber.
 
-    mixin = BasicHandlersMixin.__new__(BasicHandlersMixin)
-    return mixin._handle_workflow_outcome_to_supermemory
+    Relocated from BasicHandlersMixin (P4a Batch E2c): it is knowledge-coupled.
+    """
+    from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
+
+    return KnowledgeEventSubscriber()._handle_workflow_outcome_to_supermemory
 
 
 class TestWorkflowOutcomeToSupermemory:
@@ -201,20 +203,30 @@ class TestWorkflowOutcomeToSupermemory:
 
 
 class TestCrossSubscriberRegistration:
-    """Test that workflow handlers are registered in CrossSubscriberManager."""
+    """Test that workflow handlers are registered in CrossSubscriberManager.
+
+    Both handlers live on ``KnowledgeEventSubscriber`` (P4a Batch E2c) and are
+    wired into the manager only via ``apply_registered_subscribers`` at
+    bootstrap, so these checks use a bootstrapped manager rather than a bare
+    ``CrossSubscriberManager()``.
+    """
+
+    @staticmethod
+    def _bootstrapped_manager():
+        from aragora.events.cross_subscribers import reset_cross_subscriber_manager
+        from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+
+        reset_cross_subscriber_manager()
+        return bootstrap_debate_event_subscribers()
 
     def test_workflow_complete_handler_registered(self):
-        from aragora.events.cross_subscribers.manager import CrossSubscriberManager
-
-        manager = CrossSubscriberManager()
+        manager = self._bootstrapped_manager()
         subs = manager._subscribers.get(StreamEventType.WORKFLOW_COMPLETE, [])
         names = [name for name, _ in subs]
         assert "workflow_complete_to_supermemory" in names
 
     def test_workflow_failed_handler_registered(self):
-        from aragora.events.cross_subscribers.manager import CrossSubscriberManager
-
-        manager = CrossSubscriberManager()
+        manager = self._bootstrapped_manager()
         subs = manager._subscribers.get(StreamEventType.WORKFLOW_FAILED, [])
         names = [name for name, _ in subs]
         assert "workflow_failed_to_supermemory" in names

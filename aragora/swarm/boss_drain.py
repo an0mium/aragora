@@ -38,18 +38,32 @@ from aragora.swarm.drain_policy import DrainCandidate
 # Default branch prefixes that belong to OTHER fleets / lanes — never drained.
 DEFAULT_OFF_LIMITS_PREFIXES: tuple[str, ...] = ("structex/", "claude/fusion-")
 
+# The five required-check names that gate every ready PR (see the Feb-27 PR #472
+# required-check lineage). Single-sourced here so the repair prompt (this module)
+# and the proxy authority gate (``scripts/boss_drain_pass._REQUIRED``) cannot drift.
+REQUIRED_CHECK_NAMES: tuple[str, ...] = (
+    "lint",
+    "typecheck",
+    "sdk-parity",
+    "Generate & Validate",
+    "TypeScript SDK Type Check",
+)
+
 # Path substrings identifying MERGE-AUTHORITY surfaces. A PR touching any of these
 # is the gate's OWN logic (review queue, evidence parsers, settlement helpers, the
 # quorum workflows) and must NEVER be auto-merged by the drain — it is Tier-4 /
 # human-preapproved per the operating contract. Touching one forces off_limits=LEAVE
 # regardless of tier/quorum, so the drain can never self-modify the gate.
+#
+# Patterns are ANCHORED to known path segments (not bare words). A bare "settlement"
+# substring overshot — it fenced unrelated modules like ``aragora/debate/settlement.py``
+# or ``aragora/markets/credit_settlement.py`` (safe, but stranded legit PRs in LEAVE).
 MERGE_AUTHORITY_PATTERNS: tuple[str, ...] = (
-    "cli/commands/review_queue",  # review_queue.py + review_queue_comment_verdicts.py + helpers
-    "swarm/quorum_evidence",
-    "review/evidence",
-    "settle_one_pr",
-    "settle_tier4",
-    "settlement",
+    "aragora/cli/commands/review_queue",  # review_queue.py + *_comment_verdicts.py + helpers
+    "aragora/swarm/quorum_evidence",
+    "aragora/review/evidence",
+    "aragora/review/settlement_outcome",  # the gate's settlement-outcome helper
+    "scripts/settle_",  # scripts/settle_one_pr.py, scripts/settle_tier4.py, ...
     ".github/workflows/aragora-merge-quorum",
 )
 
@@ -82,7 +96,7 @@ def make_repair_prompt(pr: int, branch: str) -> str:
         f"HARD CONSTRAINTS (a drain-repair worker must obey all):\n"
         f"1. Work ONLY on branch `{branch}`. Never create a new branch or touch any other PR.\n"
         f"2. Do NOT broaden scope. Fix only what the required checks need "
-        f"(lint, typecheck, sdk-parity, Generate & Validate, TypeScript SDK Type Check). "
+        f"({', '.join(REQUIRED_CHECK_NAMES)}). "
         f"Keep the diff minimal.\n"
         f"3. NEVER modify merge-authority surfaces (review_queue*, quorum_evidence, settle_*, "
         f".github/workflows/aragora-merge-quorum*). If the fix would require that, STOP.\n"
@@ -168,9 +182,15 @@ def build_candidates(
 ) -> list[DrainCandidate]:
     """Classify up to ``max_classify`` open PRs into DrainCandidates (bounded I/O).
 
-    Off-limits / empty PRs are classified WITHOUT the (expensive) authority check
-    — they route to LEAVE/CLOSE on cheap signal alone. Only PRs that are
-    non-off-limits and have changes pay for a ``merge_authorized_fn`` call.
+    Two tiers of cost:
+    - **Cheap pre-filter (no I/O):** off-limits-by-id/prefix, owned, and explicitly
+      superseded PRs are decided from the list view alone (``number`` + branch), so
+      they pay for neither a ``view_pr_fn`` detail fetch nor a ``merge_authorized_fn``
+      probe. At ``--list-limit 300`` this avoids up to +300 ``gh pr view`` calls/pass.
+    - **Detail fetch (one ``view_pr_fn``):** only PRs that survive the cheap filter
+      need file paths (merge-authority probe) + ``changedFiles`` (emptiness), which
+      the list query does not carry. Of those, only non-empty / non-gate-logic PRs
+      then pay for a ``merge_authorized_fn`` authority probe.
     """
     candidates: list[DrainCandidate] = []
     for view in list(list_open_prs_fn())[:max_classify]:
@@ -178,27 +198,22 @@ def build_candidates(
         if number <= 0:
             continue
         branch = str(view.get("headRefName", ""))
-        # Cheap pre-filter (no detail fetch): a PR that is off-limits by pinned-id
-        # or branch-prefix, owned by another fleet, or explicitly superseded routes
-        # to LEAVE/CLOSE on the list-view signal alone — classify_candidate re-derives
-        # the same verdict from these signals. This avoids a `gh pr view` for every
-        # structex/* and claude/* branch (a per-cycle API/rate-limit regression at
-        # queue size 60-300). Only PRs that survive this filter pay for the detail
-        # fetch, which the merge-authority file-path guard genuinely needs.
+        # Cheap signals, derivable from the list view alone — no detail fetch.
         cheap_off_limits = number in ctx.off_limits_prs or any(
             branch.startswith(p) for p in ctx.off_limits_prefixes
         )
         if cheap_off_limits or number in ctx.owned_prs or number in ctx.superseded_prs:
             candidates.append(classify_candidate(view, ctx, merge_authorized=False, tier=4))
             continue
-        # Fetch detail (file paths included) so the merge-authority guard can still
-        # fence off gate-logic PRs whose off-limits status is only visible in their
-        # changed files (e.g. a codex/* branch that edits an evidence parser).
+        # Survived the cheap filter: now fetch detail for the merge-authority file-path
+        # probe + changedFiles (neither is in the list query).
         detail = view_pr_fn(number) or view
+        branch = str(detail.get("headRefName", branch))
         paths = [str(f.get("path", "")) for f in (detail.get("files") or []) if isinstance(f, dict)]
         off_limits = ctx._is_off_limits(number, branch, paths)
         changed = detail.get("changedFiles", detail.get("changed_files", 1))
         has_changes = bool(changed and int(changed) > 0)
+        # Path-based merge-authority off-limits or empty -> classify on signal, no probe.
         if off_limits or not has_changes:
             candidates.append(classify_candidate(detail, ctx, merge_authorized=False, tier=4))
             continue

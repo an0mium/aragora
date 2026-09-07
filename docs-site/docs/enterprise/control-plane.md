@@ -106,7 +106,7 @@ curl -X POST http://localhost:8080/api/control-plane/tasks \
   }'
 
 # Check task status
-curl http://localhost:8080/api/control-plane/tasks/\{task_id\}
+curl http://localhost:8080/api/control-plane/tasks/{task_id}
 ```
 
 ## Configuration

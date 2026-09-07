@@ -31,6 +31,41 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TMUX_SESSION="aragora"
 LOG_DIR="${HOME}/.aragora/tmux-sessions"
 mkdir -p "${LOG_DIR}"
+chmod 700 "${LOG_DIR}" 2>/dev/null || true
+
+shell_quote() {
+    python3 -c 'import shlex, sys; print(shlex.quote(sys.argv[1]))' "$1"
+}
+
+write_shell_command_file() {
+    local runner_file="$1"
+    local launch_cmd="$2"
+    local owner_session="$3"
+
+    if ! python3 -c '
+import os
+import sys
+from pathlib import Path
+
+runner_file, launch_cmd = sys.argv[1:3]
+if "\n" in launch_cmd or "\r" in launch_cmd:
+    raise SystemExit("refusing to generate launch wrapper for multi-line command")
+body = "\n".join(
+    [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        launch_cmd,
+        "",
+    ]
+)
+path = Path(runner_file)
+path.write_text(body, encoding="utf-8")
+os.chmod(path, 0o700)
+' "${runner_file}" "${launch_cmd}"; then
+        echo "Failed to generate launch wrapper for ${owner_session}" >&2
+        return 1
+    fi
+}
 
 send_prompt_to_target() {
     local target="$1"
@@ -143,6 +178,146 @@ default_init_wait_seconds() {
     esac
 }
 
+build_heartbeat_launch_wrapper() {
+    local runner_file="$1"
+    local launch_file="$2"
+    local lane_id="$3"
+    local owner_session="$4"
+
+    if ! python3 -c '
+import os
+import re
+import shlex
+import sys
+import uuid
+from pathlib import Path
+
+runner_file, repo_root, workdir, launch_file, lane_id, owner_session = sys.argv[1:7]
+if (
+    not owner_session
+    or owner_session in {".", ".."}
+    or owner_session.startswith(".")
+    or not re.fullmatch(r"[A-Za-z0-9_.-]+", owner_session)
+):
+    raise SystemExit("refusing to generate heartbeat wrapper for invalid owner session")
+runner_path = Path(runner_file)
+heartbeat_log = str(runner_path.with_name(f"{owner_session}.heartbeat.log"))
+wrapper_run_id = f"{owner_session}-{uuid.uuid4().hex}"
+body = "\n".join(
+    [
+        "#!/usr/bin/env bash",
+        f"REPO_ROOT={shlex.quote(repo_root)}",
+        f"WORKDIR={shlex.quote(workdir)}",
+        f"LANE_ID={shlex.quote(lane_id)}",
+        f"OWNER_SESSION={shlex.quote(owner_session)}",
+        f"WRAPPER_RUN_ID={shlex.quote(wrapper_run_id)}",
+        f"HEARTBEAT_LOG={shlex.quote(heartbeat_log)}",
+        f"LAUNCH_FILE={shlex.quote(launch_file)}",
+        "_heartbeat_interval=\"${ARAGORA_TMUX_HEARTBEAT_INTERVAL_SECONDS:-60}\"",
+        "if ! [[ \"${_heartbeat_interval}\" =~ ^[1-9][0-9]*$ ]]; then",
+        "    _heartbeat_interval=\"60\"",
+        "fi",
+        "_heartbeat_loop_pid=\"\"",
+        "_heartbeat_sleep_pid=\"\"",
+        "_finalizer_signal=\"\"",
+        "_finalized=\"0\"",
+        "",
+        "_record_heartbeat() {",
+        "    if [[ \"${_finalized}\" == \"1\" ]]; then",
+        "        return 0",
+        "    fi",
+        "    local branch",
+        "    branch=\"$(git -C \"${WORKDIR}\" rev-parse --abbrev-ref HEAD 2>/dev/null || true)\"",
+        "    if ! python3 \"${REPO_ROOT}/scripts/agent_heartbeat.py\" \\",
+        "        --repo-root \"${REPO_ROOT}\" \\",
+        "        --lane-id \"${LANE_ID}\" \\",
+        "        --owner-session \"${OWNER_SESSION}\" \\",
+        "        --thread-id \"${WRAPPER_RUN_ID}\" \\",
+        "        --pid \"$$\" \\",
+        "        --cwd \"${WORKDIR}\" \\",
+        "        --worktree \"${WORKDIR}\" \\",
+        "        --branch \"${branch}\" \\",
+        "        --json >/dev/null 2>>\"${HEARTBEAT_LOG}\"; then",
+        "        echo \"agent_heartbeat.py record failed for ${LANE_ID}\" >>\"${HEARTBEAT_LOG}\"",
+        "    fi",
+        "}",
+        "",
+        "_heartbeat_loop() {",
+        "    trap \"if [[ -n \\\"\\${_heartbeat_sleep_pid}\\\" ]]; then kill \\\"\\${_heartbeat_sleep_pid}\\\" 2>/dev/null || true; fi; exit 0\" TERM",
+        "    while true; do",
+        "        sleep \"${_heartbeat_interval}\" &",
+        "        _heartbeat_sleep_pid=\"$!\"",
+        "        wait \"${_heartbeat_sleep_pid}\" 2>/dev/null || exit 0",
+        "        _heartbeat_sleep_pid=\"\"",
+        "        _record_heartbeat",
+        "    done",
+        "}",
+        "",
+        "_finalize_heartbeat() {",
+        "    local rc=$?",
+        "    if [[ \"${_finalized}\" == \"1\" ]]; then",
+        "        exit \"${rc}\"",
+        "    fi",
+        "    _finalized=\"1\"",
+        "    if [[ -n \"${_heartbeat_loop_pid}\" ]]; then",
+        "        kill \"${_heartbeat_loop_pid}\" 2>/dev/null || true",
+        "        wait \"${_heartbeat_loop_pid}\" 2>/dev/null || true",
+        "    fi",
+        "    local outcome reason branch",
+        "    branch=\"$(git -C \"${WORKDIR}\" rev-parse --abbrev-ref HEAD 2>/dev/null || true)\"",
+        "    if [[ -n \"${_finalizer_signal}\" ]]; then",
+        "        outcome=\"cancelled\"",
+        "        reason=\"tmux launcher received ${_finalizer_signal}\"",
+        "    elif [[ \"${rc}\" == \"0\" ]]; then",
+        "        outcome=\"completed\"",
+        "        reason=\"tmux launcher command exited successfully\"",
+        "    else",
+        "        outcome=\"failed\"",
+        "        reason=\"tmux launcher command exited with status ${rc}\"",
+        "    fi",
+        "    if ! python3 \"${REPO_ROOT}/scripts/agent_heartbeat.py\" \\",
+        "        --repo-root \"${REPO_ROOT}\" \\",
+        "        --finalize \\",
+        "        --lane-id \"${LANE_ID}\" \\",
+        "        --owner-session \"${OWNER_SESSION}\" \\",
+        "        --thread-id \"${WRAPPER_RUN_ID}\" \\",
+        "        --pid \"$$\" \\",
+        "        --cwd \"${WORKDIR}\" \\",
+        "        --worktree \"${WORKDIR}\" \\",
+        "        --branch \"${branch}\" \\",
+        "        --outcome \"${outcome}\" \\",
+        "        --reason \"${reason}\" \\",
+        "        --json >/dev/null 2>>\"${HEARTBEAT_LOG}\"; then",
+        "        echo \"agent_heartbeat.py finalize failed for ${LANE_ID} (${outcome})\" >>\"${HEARTBEAT_LOG}\"",
+        "        rm -f \"${LAUNCH_FILE}\" \"$0\" 2>/dev/null || true",
+        "        exit 1",
+        "    fi",
+        "    rm -f \"${LAUNCH_FILE}\" \"$0\" 2>/dev/null || true",
+        "    exit \"${rc}\"",
+        "}",
+        "",
+        "trap _finalize_heartbeat EXIT",
+        "trap \"_finalizer_signal=HUP; exit 129\" HUP",
+        "trap \"_finalizer_signal=INT; exit 130\" INT",
+        "trap \"_finalizer_signal=TERM; exit 143\" TERM",
+        "_record_heartbeat",
+        "_heartbeat_loop &",
+        "_heartbeat_loop_pid=\"$!\"",
+        "bash \"${LAUNCH_FILE}\"",
+        "rc=\"$?\"",
+        "exit \"${rc}\"",
+        "",
+    ]
+)
+path = runner_path
+path.write_text(body, encoding="utf-8")
+os.chmod(path, 0o700)
+' "${runner_file}" "${REPO_ROOT}" "${WORKDIR}" "${launch_file}" "${lane_id}" "${owner_session}"; then
+        echo "Failed to generate heartbeat wrapper for ${owner_session}" >&2
+        return 1
+    fi
+}
+
 # --- argument parsing ---
 NAME=""
 AGENT="codex"
@@ -231,6 +406,11 @@ if [[ -z "${NAME}" ]]; then
     NAME="${AGENT}-$(date +%H%M%S)"
 fi
 
+if ! [[ "${NAME}" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+    echo "Invalid session name '${NAME}'. Use letters, numbers, dash, dot, or underscore; start with a letter or number." >&2
+    exit 2
+fi
+
 if [[ -n "${WORKDIR}" ]]; then
     if [[ ! -d "${WORKDIR}" ]]; then
         echo "Launch cwd does not exist or is not a directory: ${WORKDIR}" >&2
@@ -250,6 +430,65 @@ HAS_PROMPT=""
 if ! tmux has-session -t "${TMUX_SESSION}" 2>/dev/null; then
     tmux new-session -d -s "${TMUX_SESSION}" -n "_control" -x 200 -y 50
     echo "Created tmux session: ${TMUX_SESSION}"
+fi
+
+if [[ "${ALLOW_LEASE_OVERLAP}" != "1" ]]; then
+    existing_window_id="$(tmux list-windows -t "${TMUX_SESSION}" -F '#{window_index} #{window_name}' 2>/dev/null \
+        | awk -v name="${NAME}" '$2 == name { print $1; exit }')"
+    if [[ -n "${existing_window_id}" ]]; then
+        DUPLICATE_LANE_ID="${TASK_ID:-${NAME}}"
+        duplicate_is_terminal="0"
+        if python3 - "${REPO_ROOT}" "${REGISTRY_REPO_ROOT}" "${DUPLICATE_LANE_ID}" "${NAME}" <<'PY'
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+repo_root = Path(sys.argv[1])
+registry_root = Path(sys.argv[2])
+lane_id = sys.argv[3]
+owner_session = sys.argv[4]
+module_path = repo_root / "scripts" / "agent_heartbeat.py"
+spec = importlib.util.spec_from_file_location("agent_heartbeat_for_tmux", module_path)
+if spec is None or spec.loader is None:
+    raise SystemExit(1)
+agent_heartbeat = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(agent_heartbeat)
+heartbeat_path = agent_heartbeat.resolve_heartbeat_path(repo_root=registry_root)
+try:
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    raise SystemExit(1)
+for row in payload if isinstance(payload, list) else []:
+    if not isinstance(row, dict):
+        continue
+    if row.get("lane_id") != lane_id or row.get("owner_session") != owner_session:
+        continue
+    if (
+        row.get("terminal") is True
+        or row.get("terminal_outcome")
+        or row.get("terminal_finalized_at")
+    ):
+        raise SystemExit(0)
+raise SystemExit(1)
+PY
+        then
+            duplicate_is_terminal="1"
+        fi
+        if [[ "${duplicate_is_terminal}" == "1" ]]; then
+            echo "Existing tmux window '${NAME}' has terminal heartbeat state; allowing relaunch." >&2
+            tmux kill-window -t "${TMUX_SESSION}:${existing_window_id}"
+            echo "Removed terminal tmux window before relaunch: ${NAME}" >&2
+        else
+            cat >&2 <<EOF
+Refusing duplicate tmux session name '${NAME}'.
+
+A live tmux window already uses this owner/session name. Use a unique --name, kill the
+old window intentionally, or pass --allow-overlap for an explicit manual override.
+EOF
+            exit 2
+        fi
+    fi
 fi
 
 # If a prompt file is specified, load it before building the launch command.
@@ -338,7 +577,7 @@ if [[ "${AGENT}" == "codex" ]]; then
             CODEX_EXEC_PROMPT_FILE="$(cd "$(dirname "${CODEX_EXEC_PROMPT_FILE}")" && pwd)/$(basename "${CODEX_EXEC_PROMPT_FILE}")"
             PROMPT_FILE="${CODEX_EXEC_PROMPT_FILE}"
             CODEX_EXEC_LAUNCH_FILE="${LOG_DIR}/${NAME}.launch.sh"
-            python3 -c '
+            if ! python3 -c '
 import os
 import shlex
 import sys
@@ -364,22 +603,25 @@ body = "\n".join(
 path = Path(launch_file)
 path.write_text(body, encoding="utf-8")
 os.chmod(path, 0o700)
-' "${CODEX_EXEC_LAUNCH_FILE}" "${WORKDIR}" "${CODEX_EXEC_PROMPT_FILE}" "${CODEX_SESSION_ARGS[@]}"
-            LAUNCH_CMD="bash '${CODEX_EXEC_LAUNCH_FILE}'"
+' "${CODEX_EXEC_LAUNCH_FILE}" "${WORKDIR}" "${CODEX_EXEC_PROMPT_FILE}" "${CODEX_SESSION_ARGS[@]}"; then
+                echo "Failed to generate Codex exec launch script for ${NAME}" >&2
+                exit 1
+            fi
+            LAUNCH_CMD="bash $(shell_quote "${CODEX_EXEC_LAUNCH_FILE}")"
             # `codex exec` consumes the prompt directly; do not also paste it
             # into an interactive pane.
             PROMPT=""
         else
-            LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh ${CODEX_SESSION_ARGS_TEXT}"
+            LAUNCH_CMD="cd $(shell_quote "${WORKDIR}") && ./scripts/codex_session.sh ${CODEX_SESSION_ARGS_TEXT}"
         fi
     else
-        LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh ${CODEX_SESSION_ARGS_TEXT}"
+        LAUNCH_CMD="cd $(shell_quote "${WORKDIR}") && ./scripts/codex_session.sh ${CODEX_SESSION_ARGS_TEXT}"
     fi
 elif [[ "${AGENT}" == "claude" ]]; then
     if [[ "${AUTONOMOUS}" == "1" ]]; then
-        LAUNCH_CMD="cd '${WORKDIR}' && ARAGORA_ADMIN_APPROVED=1 ./scripts/claude-wt"
+        LAUNCH_CMD="cd $(shell_quote "${WORKDIR}") && ARAGORA_ADMIN_APPROVED=1 ./scripts/claude-wt"
     else
-        LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/claude-wt"
+        LAUNCH_CMD="cd $(shell_quote "${WORKDIR}") && ./scripts/claude-wt"
     fi
 elif [[ "${AGENT}" == "droid" || "${AGENT}" == "factory" ]]; then
     DROID_AUTO_LEVEL="${ARAGORA_DROID_AUTO_LEVEL:-high}"
@@ -398,7 +640,7 @@ elif [[ "${AGENT}" == "droid" || "${AGENT}" == "factory" ]]; then
         fi
         DROID_EXEC_PROMPT_FILE="$(cd "$(dirname "${DROID_EXEC_PROMPT_FILE}")" && pwd)/$(basename "${DROID_EXEC_PROMPT_FILE}")"
         PROMPT_FILE="${DROID_EXEC_PROMPT_FILE}"
-        LAUNCH_CMD="cd '${WORKDIR}' && droid exec --auto '${DROID_AUTO_LEVEL}' --cwd '${WORKDIR}' -f '${DROID_EXEC_PROMPT_FILE}'"
+        LAUNCH_CMD="cd $(shell_quote "${WORKDIR}") && droid exec --auto $(shell_quote "${DROID_AUTO_LEVEL}") --cwd $(shell_quote "${WORKDIR}") -f $(shell_quote "${DROID_EXEC_PROMPT_FILE}")"
         # `droid exec -f` consumes the prompt directly; do not also paste it
         # into an interactive pane.
         PROMPT=""
@@ -407,12 +649,20 @@ elif [[ "${AGENT}" == "droid" || "${AGENT}" == "factory" ]]; then
             echo "Refusing to launch ${AGENT} without a prompt: interactive Droid starts Auto Off. Use --prompt/--prompt-file so this launcher can run droid exec --auto ${DROID_AUTO_LEVEL}, or set ARAGORA_ALLOW_DROID_AUTO_OFF=1 for an explicit manual override." >&2
             exit 1
         fi
-        LAUNCH_CMD="cd '${WORKDIR}' && droid --cwd '${WORKDIR}'"
+        LAUNCH_CMD="cd $(shell_quote "${WORKDIR}") && droid --cwd $(shell_quote "${WORKDIR}")"
     fi
 else
     echo "Unknown agent: ${AGENT}. Use 'codex', 'claude', 'droid', or 'factory'." >&2
     exit 1
 fi
+
+HEARTBEAT_LANE_ID="${TASK_ID:-${NAME}}"
+AGENT_LAUNCH_FILE="$(mktemp "${LOG_DIR}/${NAME}.launch.XXXXXX")"
+write_shell_command_file "${AGENT_LAUNCH_FILE}" "${LAUNCH_CMD}" "${NAME}"
+HEARTBEAT_LAUNCH_FILE="$(mktemp "${LOG_DIR}/${NAME}.heartbeat-launch.XXXXXX")"
+ORIGINAL_LAUNCH_CMD="${LAUNCH_CMD}"
+build_heartbeat_launch_wrapper "${HEARTBEAT_LAUNCH_FILE}" "${AGENT_LAUNCH_FILE}" "${HEARTBEAT_LANE_ID}" "${NAME}"
+LAUNCH_CMD="bash $(shell_quote "${HEARTBEAT_LAUNCH_FILE}")"
 
 # Create new tmux window with logging
 WINDOW_TARGET="$(tmux new-window -P -F '#{window_id}' -t "${TMUX_SESSION}" -n "${NAME}")"
@@ -481,7 +731,7 @@ try:
     registry_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 except Exception as exc:
     print("warning: failed to register launcher session: " + str(exc), file=sys.stderr)
-' "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${WORKDIR}" "${PROMPT_FILE}" "${META_FILE}" "${HAS_PROMPT}" "${WINDOW_TARGET}" "${TMUX_SESSION}" "${PANE_INDEX}" "${LAUNCH_CMD}" "${REGISTRY_REPO_ROOT}"
+' "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${WORKDIR}" "${PROMPT_FILE}" "${META_FILE}" "${HAS_PROMPT}" "${WINDOW_TARGET}" "${TMUX_SESSION}" "${PANE_INDEX}" "${ORIGINAL_LAUNCH_CMD}" "${REGISTRY_REPO_ROOT}"
 
 echo "Launched '${NAME}' (${AGENT}) in tmux session '${TMUX_SESSION}'"
 echo "  Cwd: ${WORKDIR}"

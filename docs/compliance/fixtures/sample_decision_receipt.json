@@ -1,0 +1,109 @@
+{
+  "agent_responses": [
+    {
+      "agent": "claude",
+      "llm_label": "",
+      "model": "claude-opus-4",
+      "provider": "anthropic",
+      "provider_display": "",
+      "response": "Support with conditions: the EUR 5,000 threshold is reasonable, but the approved-vendor list must be re-validated quarterly.",
+      "role": "proposer",
+      "round": 2
+    },
+    {
+      "agent": "gpt5",
+      "llm_label": "",
+      "model": "gpt-5",
+      "provider": "openai",
+      "provider_display": "",
+      "response": "Support: exposure is bounded by the threshold and vendor allow-list; recommend sampling 5% of auto-approved invoices for retrospective human review.",
+      "role": "critic",
+      "round": 2
+    },
+    {
+      "agent": "gemini",
+      "llm_label": "",
+      "model": "gemini-2.5-pro",
+      "provider": "google",
+      "provider_display": "",
+      "response": "Dissent: duplicate-invoice detection is not yet in place; automated approval should wait until it ships.",
+      "role": "critic",
+      "round": 2
+    }
+  ],
+  "artifact_hash": "f51bcdfd799bb5fdfabaefad7b8164c80c86e53a1c74c767d28f3c396f2bf6c8",
+  "attacks_attempted": 4,
+  "attacks_successful": 1,
+  "confidence": 0.82,
+  "config_used": {},
+  "consensus_proof": {
+    "confidence": 0.82,
+    "dissenting_agents": [
+      "gemini"
+    ],
+    "evidence_hash": "5cea26ecc1fb05f5b141b38e5d2ecb0850f0bb667ac924b4573c715048ca23e7",
+    "method": "majority",
+    "reached": true,
+    "supporting_agents": [
+      "claude",
+      "gpt5"
+    ],
+    "tainted_proposals": [],
+    "trust_score": 1.0
+  },
+  "cost_summary": null,
+  "dissenting_views": [
+    "gemini: duplicate-invoice detection is not yet in place; automated approval should wait until it ships."
+  ],
+  "explainability": null,
+  "gauntlet_id": "gauntlet-walkthrough-0001",
+  "input_hash": "8c32664b4177a39eb9c29e8613144392884db1682e8a49368c4a8f58fbbd5219",
+  "input_summary": "Proposal: enable automated invoice approval for amounts under EUR 5,000 when the supplier is on the approved-vendor list",
+  "probes_run": 6,
+  "provenance_chain": [
+    {
+      "agent": "gpt5",
+      "description": "Adversarial probe: split-invoice evasion of the EUR 5,000 threshold",
+      "event_type": "probe",
+      "evidence_hash": "0a4a28844fa6f445ea5529624eea6ba5b3c73f2e75aec7acd117442a0504dff1",
+      "timestamp": "2026-07-02T11:45:00+00:00"
+    },
+    {
+      "agent": "gemini",
+      "description": "Attack scenario: supplier impersonation via look-alike vendor name",
+      "event_type": "attack",
+      "evidence_hash": "2b746268694536cde7e14904d099e26a88668cc5d9e77b3c5de19174509b0807",
+      "timestamp": "2026-07-02T11:52:00+00:00"
+    },
+    {
+      "agent": null,
+      "description": "Majority verdict recorded with one dissent preserved",
+      "event_type": "verdict",
+      "evidence_hash": "333e1fb4375f83232145ca376d5663682b399a1395500072fc65e171693dce56",
+      "timestamp": "2026-07-02T11:59:00+00:00"
+    }
+  ],
+  "receipt_id": "receipt-walkthrough-0001",
+  "risk_summary": {
+    "critical": 0,
+    "high": 1,
+    "low": 1,
+    "medium": 2
+  },
+  "robustness_score": 0.75,
+  "schema_version": "1.1",
+  "settlement_metadata": null,
+  "settlement_status": null,
+  "thinking_traces": null,
+  "timestamp": "2026-07-02T12:00:00+00:00",
+  "verdict": "CONDITIONAL",
+  "verdict_reasoning": "Majority (2 of 3) support automated approval under EUR 5,000 with quarterly vendor-list revalidation and 5% retrospective sampling. Conditional rather than pass: the split-invoice finding must be mitigated, and gemini's dissent on duplicate-invoice detection is preserved as an open risk.",
+  "vulnerabilities_found": 1,
+  "vulnerability_details": [
+    {
+      "description": "Split-invoice evasion: two invoices under the threshold from the same vendor on the same day bypass the intended cap",
+      "mitigation": "Aggregate same-vendor daily totals before auto-approval",
+      "severity": "high"
+    }
+  ]
+}

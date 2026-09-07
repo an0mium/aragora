@@ -809,6 +809,7 @@ class TestBaseHandler:
 
     # === Authentication ===
 
+    @pytest.mark.no_auto_auth
     def test_get_current_user_authenticated(self, handler):
         """Test get_current_user when authenticated."""
         mock_user = MockUserContext()
@@ -820,6 +821,7 @@ class TestBaseHandler:
 
         assert result == mock_user
 
+    @pytest.mark.no_auto_auth
     def test_get_current_user_not_authenticated(self, handler):
         """Test get_current_user returns None when not authenticated."""
         mock_user = MockUserContext(is_authenticated=False)
@@ -831,6 +833,7 @@ class TestBaseHandler:
 
         assert result is None
 
+    @pytest.mark.no_auto_auth
     def test_require_auth_or_error_authenticated(self, handler):
         """Test require_auth_or_error when authenticated."""
         mock_user = MockUserContext()
@@ -843,6 +846,7 @@ class TestBaseHandler:
         assert user == mock_user
         assert err is None
 
+    @pytest.mark.no_auto_auth
     def test_require_auth_or_error_not_authenticated(self, handler):
         """Test require_auth_or_error when not authenticated."""
         mock_user = MockUserContext(is_authenticated=False)
@@ -865,8 +869,11 @@ class TestBaseHandler:
 
     def test_read_json_body_empty(self, handler):
         """Test reading empty body."""
-        mock_h = MagicMock()
+        mock_h = MagicMock(spec=["headers", "rfile"])
         mock_h.headers = {"Content-Length": "0"}
+        # Zero Content-Length falls back to reading rfile (Cloudflare HTTP/2
+        # proxying strips Content-Length), so the mock needs a real stream.
+        mock_h.rfile = io.BytesIO(b"")
         result = handler.read_json_body(mock_h)
         assert result == {}
 
@@ -1053,6 +1060,7 @@ class TestBaseHandlerIntegration:
         assert parsed["limit"] == 5
         assert parsed["has_more"] is True
 
+    @pytest.mark.no_auto_auth
     def test_handler_with_auth_and_body(self, server_context):
         """Test handler with authentication and JSON body."""
 

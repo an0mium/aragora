@@ -330,10 +330,10 @@ async def test_failover():
                 successes += 1
         except Exception as e:
             errors += 1
-            print(f"Error at \{i\}s: \{e\}")
+            print(f"Error at {i}s: {e}")
         await asyncio.sleep(1)
 
-    print(f"Successes: \{successes\}, Errors: \{errors\}")
+    print(f"Successes: {successes}, Errors: {errors}")
     print(f"Availability: {successes / (successes + errors) * 100:.1f}%")
 ```
 

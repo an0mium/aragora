@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
-    from aragora.type_protocols import EventEmitterProtocol, PersonaManagerProtocol
+    from aragora.protocols import EventEmitterProtocol, PersonaManagerProtocol
 
 logger = logging.getLogger(__name__)
 

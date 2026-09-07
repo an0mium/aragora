@@ -15,8 +15,15 @@ from __future__ import annotations
 
 import re
 import sys
+from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
+from urllib.parse import unquote
+
+
+HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$")
+HTML_ID_RE = re.compile(r"""\bid=["']([^"']+)["']""")
+GITHUB_PUNCTUATION_RE = re.compile(r"[`~!@#$%^&*()=+\[\]{}\\|;:'\",.<>/?—–]")
 
 
 class BrokenLink(NamedTuple):
@@ -57,14 +64,95 @@ def find_markdown_links(content: str) -> list[tuple[int, str]]:
             # Skip external links
             if link.startswith(("http://", "https://", "mailto:")):
                 continue
-            # Skip anchor-only links
-            if link.startswith("#"):
-                continue
             # Skip placeholder links
             if link in ("'...'", "..."):
                 continue
             links.append((i, link))
     return links
+
+
+def strip_link_title(raw: str) -> str:
+    """Return the link target without an optional markdown title."""
+    target = raw.strip()
+    if target.startswith("<") and ">" in target:
+        return target[1 : target.index(">")]
+    return target.split()[0] if target.split() else target
+
+
+def split_link_target(raw: str) -> tuple[str, str]:
+    """Split a markdown link target into path and decoded anchor parts."""
+    target = strip_link_title(raw)
+    path_part, sep, anchor = target.partition("#")
+    path_part = unquote(path_part.split("?", 1)[0])
+    return path_part, unquote(anchor) if sep else ""
+
+
+def _anchor_text(value: str) -> str:
+    """Return markdown-stripped text before GitHub-style slug normalization."""
+    value = unquote(value).lower()
+    value = re.sub(r"`([^`]+)`", r"\1", value)
+    value = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", value)
+    return re.sub(r"<[^>]+>", "", value)
+
+
+def normalize_anchor(value: str) -> str:
+    """Normalize a heading or explicit id for loose internal comparisons."""
+    value = GITHUB_PUNCTUATION_RE.sub("", _anchor_text(value))
+    value = re.sub(r"[-\s]+", " ", value)
+    return " ".join(value.split())
+
+
+def github_slug(value: str) -> str:
+    """Return the canonical GitHub-style slug for a heading."""
+    value = GITHUB_PUNCTUATION_RE.sub("", _anchor_text(value))
+    return re.sub(r"\s", "-", value.strip())
+
+
+def heading_anchors(path: Path) -> set[str]:
+    """Collect markdown heading and explicit HTML id anchors from a file."""
+    try:
+        resolved = path.resolve()
+        stat = resolved.stat()
+    except OSError:
+        return set()
+    return set(_heading_anchors_cached(resolved, stat.st_mtime_ns, stat.st_size))
+
+
+@lru_cache(maxsize=512)
+def _heading_anchors_cached(
+    path: Path,
+    mtime_ns: int,  # noqa: ARG001 - cache key invalidates stale reads
+    size: int,  # noqa: ARG001 - cache key invalidates stale reads
+) -> frozenset[str]:
+    """Collect exact anchors for a file, cached by path and file stat."""
+    anchors: set[str] = set()
+    seen_slugs: dict[str, int] = {}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return frozenset()
+
+    for line in text.splitlines():
+        heading = HEADING_RE.match(line)
+        if heading:
+            slug = github_slug(heading.group(1).strip())
+            if slug:
+                duplicate_index = seen_slugs.get(slug, 0)
+                seen_slugs[slug] = duplicate_index + 1
+                anchors.add(slug if duplicate_index == 0 else f"{slug}-{duplicate_index}")
+        for html_id in HTML_ID_RE.findall(line):
+            explicit_id = unquote(html_id).strip()
+            if explicit_id:
+                anchors.add(explicit_id)
+    return frozenset(anchors)
+
+
+def anchor_exists(path: Path, anchor: str) -> bool:
+    """Return whether a markdown file contains the requested heading anchor."""
+    wanted_slug = github_slug(anchor)
+    wanted_explicit_id = unquote(anchor).strip()
+    anchors = heading_anchors(path)
+    return wanted_slug in anchors or wanted_explicit_id in anchors
 
 
 def validate_link(source_file: Path, link: str, docs_dir: Path) -> str | None:
@@ -73,14 +161,12 @@ def validate_link(source_file: Path, link: str, docs_dir: Path) -> str | None:
     Returns error message if broken, None if valid.
     """
     # Parse link and anchor
-    if "#" in link:
-        file_part, anchor = link.split("#", 1)
-    else:
-        file_part = link
-        anchor = None
+    file_part, anchor = split_link_target(link)
 
     # Resolve relative path
-    if file_part.startswith("../"):
+    if file_part.startswith("/"):
+        target = docs_dir.parent / file_part.lstrip("/")
+    elif file_part.startswith("../"):
         target = source_file.parent / file_part
     elif file_part.startswith("./"):
         target = source_file.parent / file_part[2:]
@@ -92,16 +178,20 @@ def validate_link(source_file: Path, link: str, docs_dir: Path) -> str | None:
 
     # Normalize path
     try:
+        repo_root = docs_dir.parent.resolve()
         target = target.resolve()
     except (OSError, ValueError):
         return f"Invalid path: {link}"
+
+    if not target.is_relative_to(repo_root):
+        return f"Path escapes repository root: {file_part}"
 
     # Check if file exists
     if not target.exists():
         return f"File not found: {file_part}"
 
-    # TODO: Validate anchor links by parsing target file headers
-    # For now, we only validate file existence
+    if anchor and target.suffix.lower() == ".md" and not anchor_exists(target, anchor):
+        return f"Anchor not found: #{anchor}"
 
     return None
 

@@ -122,6 +122,12 @@ python3 scripts/lane_conductor.py --json --max-workers 3
 
 # Actually claim the lanes and drop work orders for the supervisor to spawn:
 python3 scripts/lane_conductor.py --execute --max-workers 3
+
+# Preview the complete conductor -> supervisor launch cycle (still no side effects):
+python3 scripts/lane_conductor.py --launch-workers --json --max-workers 3
+
+# Claim, dispatch, and immediately drain the newly dispatched work orders:
+python3 scripts/lane_conductor.py --execute --launch-workers --max-workers 3
 ```
 
 Under `--execute`, each assignment is claimed via `claim_active_agent_lane.py`
@@ -136,6 +142,13 @@ worktree provisioning and makes every dispatch inspectable/replayable.
 The decision core (`plan_pass`, `build_work_orders`) is pure — the `gh` /
 `identify_lane_owner` reads and the claim/dispatch writes are injected
 callables, so the whole pass is unit-tested without a network or a worktree.
+
+With `--launch-workers`, `scripts/lane_conductor.py` runs one integrated
+conductor → supervisor cycle. Dry-run remains side-effect free: it shows the
+orders that would be launched but writes no claims, dispatches no files, and
+spawns no workers. Under `--execute --launch-workers`, the supervisor drains
+only the work-order ids that the conductor just dispatched, so older pending
+backlog is not launched as a surprise side effect of a fresh conductor pass.
 
 ### Draining work orders (the supervisor)
 
@@ -164,11 +177,12 @@ python3 scripts/lane_supervisor.py --execute --max-launches 3
 
 Under `--execute` each order is handed to
 `worker_launcher.WorkerLauncher.launch`. That call is async and needs a
-provisioned worktree (operator-machine-specific), so the work order must carry a
-`worktree`; orders without one fail cleanly into `failed/` rather than launching
-unisolated. The drainer state machine is fully unit-tested with an injected fake
-launcher; the live `WorkerLauncher` seam is the one piece to validate on your
-machine.
+provisioned worktree (operator-machine-specific), so the supervisor launch seam
+provisions an isolated worktree on the order's branch unless the work order
+already carries a `worktree`. Provisioning failures move that order to
+`failed/` and the drain continues. The drainer state machine is fully
+unit-tested with an injected fake launcher; the live `WorkerLauncher` seam is
+the one piece to validate on your machine.
 
 ## Identity / budget note
 

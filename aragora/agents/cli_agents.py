@@ -34,6 +34,7 @@ from aragora.agents.errors import (
 )
 from aragora.agents.registry import AgentRegistry
 from aragora.config import get_api_key
+from aragora.config.model_pins import GEMINI_31_PRO_VIA_OPENROUTER
 from aragora.core import Agent, Critique, Message
 from aragora.core_types import AgentRole
 from aragora.resilience import BaseCircuitBreaker, get_v2_circuit_breaker as get_circuit_breaker
@@ -74,6 +75,9 @@ __all__ = [
     "OpenAIAgent",
     "GeminiCLIAgent",
     "GrokCLIAgent",
+    "GrokBuildAgent",
+    "AntigravityAgent",
+    "KimiCLIAgent",
     "QwenCLIAgent",
     "DeepseekCLIAgent",
     "KiloCodeAgent",
@@ -191,6 +195,31 @@ def terminate_tracked_cli_processes(grace_seconds: float = 0.2) -> dict[str, int
     }
 
 
+#: UNMISTAKABLE provider-wall signatures printed to STDOUT with exit 0
+#: (issue #9304): phrases that never occur as ordinary debate content.
+_EXIT0_STRONG_ERROR_MARKERS: tuple[str, ...] = (
+    "do not have access to this model",
+    "out of usage credits",
+    "run /usage-credits",
+    "hit your usage limit",
+    "please run /login",
+    "invalid x-api-key",
+    "credit balance is too low",
+)
+
+#: Generic phrases ("quota exceeded", "not logged in") appear in legitimate
+#: answers ABOUT auth/quota topics — this repo's own debates discuss them.
+#: They only classify one-line outputs (#9315 round 1, both families).
+_EXIT0_WEAK_ERROR_MARKERS: tuple[str, ...] = (
+    "not logged in",
+    "quota exceeded",
+    "authentication_error",
+)
+
+_EXIT0_STRONG_MAX_CHARS = 2000
+_EXIT0_WEAK_MAX_CHARS = 160
+
+
 class CLIAgent(CritiqueMixin, Agent):
     """Base class for CLI-based agents.
 
@@ -202,14 +231,16 @@ class CLIAgent(CritiqueMixin, Agent):
     # Map CLI agent models to OpenRouter model identifiers
     OPENROUTER_MODEL_MAP: dict[str, str] = {
         # Claude models
-        "claude": "anthropic/claude-opus-4.8",  # Default claude CLI
-        "claude-opus-4-8": "anthropic/claude-opus-4.8",
-        "claude-opus-4-7": "anthropic/claude-opus-4.8",
-        "claude-sonnet-4-6": "anthropic/claude-opus-4.8",
-        "claude-opus-4-5-20251101": "anthropic/claude-opus-4.8",
-        "claude-sonnet-4-20250514": "anthropic/claude-opus-4.8",
-        "claude-3-opus-20240229": "anthropic/claude-opus-4.8",
-        "claude-3-sonnet-20240229": "anthropic/claude-opus-4.8",
+        "claude": "anthropic/claude-opus-5",  # Default claude CLI
+        "claude-fable-5": "anthropic/claude-fable-5",
+        "claude-opus-5": "anthropic/claude-opus-5",
+        "claude-opus-4-8": "anthropic/claude-opus-5",
+        "claude-opus-4-7": "anthropic/claude-opus-5",
+        "claude-sonnet-4-6": "anthropic/claude-opus-5",
+        "claude-opus-4-5-20251101": "anthropic/claude-opus-5",
+        "claude-sonnet-4-20250514": "anthropic/claude-opus-5",
+        "claude-3-opus-20240229": "anthropic/claude-opus-5",
+        "claude-3-sonnet-20240229": "anthropic/claude-opus-5",
         # OpenAI/Codex models
         "gpt-5.5": "openai/gpt-5.5",
         "gpt-5.4": "openai/gpt-5.5",
@@ -223,20 +254,20 @@ class CLIAgent(CritiqueMixin, Agent):
         "gpt-4-turbo": "openai/gpt-5.5",
         "gpt-4": "openai/gpt-5.5",
         # Gemini models
-        "gemini-3.1-pro-preview": "google/gemini-3.1-pro",
-        "gemini-3.1-pro": "google/gemini-3.1-pro",
-        "gemini-3-pro-preview": "google/gemini-3.1-pro",
-        "gemini-3-pro": "google/gemini-3.1-pro",
+        "gemini-3.1-pro-preview": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-3.1-pro": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-3-pro-preview": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-3-pro": GEMINI_31_PRO_VIA_OPENROUTER,
         "gemini-3-flash-preview": "google/gemini-3-flash-preview",
         "gemini-3-flash": "google/gemini-3-flash-preview",
         "gemini-2.0-flash": "google/gemini-2.0-flash-001",
         "gemini-1.5-pro": "google/gemini-pro-1.5",
         # Grok models
         "grok-4-1-fast": "x-ai/grok-4.1-fast",
-        "grok-4-latest": "x-ai/grok-4",
-        "grok-4": "x-ai/grok-4",
-        "grok-3": "x-ai/grok-4",
-        "grok-2": "x-ai/grok-4",
+        "grok-4-latest": "x-ai/grok-4.5",
+        "grok-4": "x-ai/grok-4.5",
+        "grok-3": "x-ai/grok-4.5",
+        "grok-2": "x-ai/grok-4.5",
         # Deepseek models
         "deepseek-coder": "deepseek/deepseek-v4-pro",
         "deepseek-v3": "deepseek/deepseek-v4-pro",
@@ -277,6 +308,7 @@ class CLIAgent(CritiqueMixin, Agent):
 
         # Use provided circuit breaker, global registry, or disable
         # Global registry ensures consistent state across agent instances
+        self._circuit_breaker: BaseCircuitBreaker | None
         if circuit_breaker is not None:
             self._circuit_breaker = circuit_breaker
         elif enable_circuit_breaker:
@@ -330,7 +362,7 @@ class CLIAgent(CritiqueMixin, Agent):
                     else:
                         openrouter_model = self.model
                 else:
-                    openrouter_model = "anthropic/claude-opus-4.8"  # Default fallback model
+                    openrouter_model = "anthropic/claude-opus-5"  # Default fallback model
 
             self._fallback_agent = OpenRouterAgent(
                 name=f"{self.name}_fallback",
@@ -450,6 +482,28 @@ class CLIAgent(CritiqueMixin, Agent):
 
                 stdout_text = stdout.decode("utf-8", errors="replace").strip()
                 stderr_text = stderr.decode("utf-8", errors="replace").strip()
+
+                # Provider walls/errors printed to STDOUT with exit 0 (issue
+                # #9304): a proxy's 403 body or a subscription wall is not a
+                # proposal. Without this, error text enters the debate as
+                # content ('Round 1: Low novelty 0.00') and rots memory.
+                lowered_stdout = stdout_text.lower()
+                is_wall = (
+                    len(stdout_text) < _EXIT0_STRONG_MAX_CHARS
+                    and any(m in lowered_stdout for m in _EXIT0_STRONG_ERROR_MARKERS)
+                ) or (
+                    len(stdout_text) < _EXIT0_WEAK_MAX_CHARS
+                    and any(m in lowered_stdout for m in _EXIT0_WEAK_ERROR_MARKERS)
+                )
+                if stdout_text and is_wall:
+                    if self._circuit_breaker is not None:
+                        self._circuit_breaker.record_failure()
+                    raise CLISubprocessError(
+                        message=f"CLI returned a provider error as output: {stdout_text[:200]}",
+                        agent_name=self.name,
+                        returncode=0,
+                        stderr=stderr_text or None,
+                    )
 
                 # Some CLIs (e.g., Kilo) emit errors on stderr but return code 0.
                 # Treat "no stdout + non-empty stderr" as a failure to enable fallback.
@@ -772,7 +826,7 @@ Be constructive but thorough. Identify both technical and conceptual issues."""
 
 @AgentRegistry.register(
     "claude",
-    default_model="claude-opus-4-8",
+    default_model="claude-fable-5",
     agent_type="CLI",
     requires="claude CLI (npm install -g @anthropic-ai/claude-code)",
 )
@@ -792,7 +846,13 @@ class ClaudeAgent(CLIAgent):
         command unchanged when no pool/profile is available.
         """
         full_prompt = self._build_full_prompt(prompt, context)
-        command, used_profile = build_claude_command(["claude", "--print", "-p", "-"])
+        # Pin the CLI to the registered model: without --model the CLI runs
+        # whatever the active profile defaults to, and receipts would claim
+        # self.model while a different model answered.
+        base_command = ["claude", "--print"]
+        if self.model:
+            base_command += ["--model", self.model]
+        command, used_profile = build_claude_command([*base_command, "-p", "-"])
         # Pass prompt via stdin to avoid shell argument length limits.
         return await self._generate_with_fallback(
             command,
@@ -864,13 +924,13 @@ class KiloCodeAgent(CLIAgent):
     via direct API or OpenRouter.
 
     Provider IDs should be in provider/model format for the `kilo run` CLI.
-    Example: google/gemini-3.1-pro
+    Example: google/gemini-3.1-pro-preview
     """
 
     def __init__(
         self,
         name: str,
-        provider_id: str = "google/gemini-3.1-pro",
+        provider_id: str = GEMINI_31_PRO_VIA_OPENROUTER,
         model: str | None = None,
         role: AgentRole = "proposer",
         timeout: int = 600,
@@ -1037,6 +1097,152 @@ class GrokCLIAgent(CLIAgent):
             context,
             response_extractor=self._extract_grok_response,
         )
+
+
+def _resolve_grok_build_bin() -> str:
+    """Resolve the Grok Build CLI binary.
+
+    Grok Build (xAI's headless coding agent, SuperGrok / X Premium+) installs to
+    ``~/.grok/bin/grok``. This is a DIFFERENT tool from the legacy ``grok-cli``
+    (used by :class:`GrokCLIAgent`), which is commonly first on ``PATH`` as
+    ``/opt/homebrew/bin/grok`` and is unrelated/deprecated. We therefore resolve
+    the explicit install path (overridable via ``ARAGORA_GROK_BUILD_BIN``) rather
+    than relying on ``PATH``, so we never invoke the wrong ``grok``.
+    """
+    override = os.environ.get("ARAGORA_GROK_BUILD_BIN", "").strip()
+    resolved = override or os.path.expanduser("~/.grok/bin/grok")
+    # A missing binary surfaces only as a subprocess failure → silent OpenRouter
+    # fallback (defeating the subscription-only intent). Log it so the operator
+    # can diagnose "why am I being billed for grok via API?".
+    if not os.path.isfile(resolved):
+        logger.debug(
+            "Grok Build CLI not found at %s; CLI invocation will fail and fall "
+            "back to OpenRouter (set ARAGORA_GROK_BUILD_BIN to override)",
+            resolved,
+        )
+    return resolved
+
+
+def _resolve_antigravity_bin() -> str:
+    """Resolve the Antigravity CLI binary without trusting ambient PATH."""
+    override = os.environ.get("ARAGORA_ANTIGRAVITY_BIN", "").strip()
+    resolved = override or os.path.expanduser("~/.antigravity/bin/agy")
+    if not os.path.isfile(resolved):
+        logger.debug(
+            "Antigravity CLI not found at %s; CLI invocation will fail and fall "
+            "back to OpenRouter (set ARAGORA_ANTIGRAVITY_BIN to override)",
+            resolved,
+        )
+    return resolved
+
+
+@AgentRegistry.register(
+    "grok-build",
+    default_model="grok-build",
+    agent_type="CLI",
+    requires="Grok Build CLI (~/.grok/bin/grok; install: curl -fsSL https://x.ai/cli/install.sh | bash; SuperGrok/X Premium+)",
+)
+class GrokBuildAgent(CLIAgent):
+    """Agent that uses xAI's Grok Build headless coding CLI (subscription-authed).
+
+    Distinct from :class:`GrokCLIAgent` (the legacy ``grok-cli``): Grok Build is
+    xAI's newer agentic CLI invoked headlessly as ``grok --no-plan -p <prompt>``.
+    The binary is resolved via :func:`_resolve_grok_build_bin` to avoid the
+    unrelated legacy ``grok`` on ``PATH``. Falls back to OpenRouter (xAI) on CLI
+    failure if enabled.
+    """
+
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response via the Grok Build CLI (``--no-plan`` headless single-shot)."""
+        full_prompt = self._build_full_prompt(prompt, context)
+        grok_bin = _resolve_grok_build_bin()
+        # --no-plan skips the interactive plan step; -p/--single runs one prompt and exits.
+        if self._is_prompt_too_large_for_argv(full_prompt):
+            return await self._generate_with_fallback(
+                [grok_bin, "--no-plan", "-p", "-"],
+                prompt,
+                context,
+                input_text=full_prompt,
+            )
+        return await self._generate_with_fallback(
+            [grok_bin, "--no-plan", "-p", full_prompt],
+            prompt,
+            context,
+        )
+
+
+@AgentRegistry.register(
+    "antigravity",
+    default_model="gemini-3.5-flash",
+    agent_type="CLI",
+    requires="Antigravity CLI (agy; install: curl -fsSL https://antigravity.google/cli/install.sh | bash; Google AI Ultra)",
+)
+class AntigravityAgent(CLIAgent):
+    """Agent that uses Google's Antigravity CLI (``agy``), Gemini model family.
+
+    Headless single-prompt mode (``agy -p <prompt>``) prints the response. This is
+    the subscription (Google AI Ultra) surface that supersedes the legacy
+    ``gemini`` CLI for headless use. Falls back to OpenRouter on CLI failure if
+    enabled.
+    """
+
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response via the Antigravity CLI (``agy -p`` headless print mode)."""
+        full_prompt = self._build_full_prompt(prompt, context)
+        agy_bin = _resolve_antigravity_bin()
+        if self._is_prompt_too_large_for_argv(full_prompt):
+            return await self._generate_with_fallback(
+                [agy_bin, "-p", "-"],
+                prompt,
+                context,
+                input_text=full_prompt,
+            )
+        return await self._generate_with_fallback(
+            [agy_bin, "-p", full_prompt],
+            prompt,
+            context,
+        )
+
+
+class KimiCLIAgent(CLIAgent):
+    """Agent that uses Moonshot's Kimi CLI (cheap-tier, distinct quorum family).
+
+    NOT registered by default. Moonshot's ``kimi-cli`` is **ACP-based** with an
+    interactive ``/login``; it does **not** document a headless ``kimi -p`` mode,
+    so the ``-p`` invocation below is UNVERIFIED and a CLI miss would silently
+    fall back to OpenRouter (defeating the cheap-tier-subscription goal). Until a
+    real headless/ACP integration is verified against an installed ``kimi-cli``,
+    registration is gated behind ``ARAGORA_ENABLE_KIMI_CLI`` so a stock install
+    never auto-selects a likely-wrong command. Kimi maps to the ``moonshot``/
+    ``kimi`` model family. Falls back to OpenRouter (Kimi) on CLI failure.
+    """
+
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response via the Kimi CLI (invocation unverified — see class docstring)."""
+        full_prompt = self._build_full_prompt(prompt, context)
+        if self._is_prompt_too_large_for_argv(full_prompt):
+            return await self._generate_with_fallback(
+                ["kimi", "-p", "-"],
+                prompt,
+                context,
+                input_text=full_prompt,
+            )
+        return await self._generate_with_fallback(
+            ["kimi", "-p", full_prompt],
+            prompt,
+            context,
+        )
+
+
+# Gate Kimi registration behind an explicit opt-in: the headless CLI contract is
+# unverified (kimi-cli is ACP, not `-p`), so it must not be a default agent.
+if os.environ.get("ARAGORA_ENABLE_KIMI_CLI", "").strip():
+    AgentRegistry.register(
+        "kimi-cli",
+        default_model="kimi-k2",
+        agent_type="CLI",
+        requires="Kimi CLI (pip install kimi-cli); ACP-based, headless `-p` unverified",
+    )(KimiCLIAgent)
 
 
 @AgentRegistry.register(

@@ -62,8 +62,8 @@ async def main(
     from aragora.queue import (
         create_redis_queue,
         DebateWorker,
-        create_default_executor,
     )
+    from aragora.debate.queue_executor import create_default_executor
 
     logger = logging.getLogger(__name__)
     logger.info(f"Starting worker {worker_id} with concurrency={concurrency}")

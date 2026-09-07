@@ -40,10 +40,12 @@ bootstraps and from any agent):
   same ``lane_id`` from a *different* ``owner_session`` is rejected
   unless ``--force`` is supplied; the helper exits 2 and prints a
   conflict hint so the caller can pick a different lane name or wait.
-- A mutating active claim is also rejected when a different active owner
-  already claims the same ``pr_number``, ``branch``, or ``worktree``.
-  Different lane IDs cannot silently duplicate work on the same PR or branch.
-  Read-only observers can opt into report-only claim creation with
+- A mutating active claim is also rejected when a different blocking owner
+  already claims the same ``pr_number``, ``branch``, or ``worktree``. Blocking
+  rows include live/active statuses, conflict rows, and unknown statuses.
+  Terminal rows such as ``released``, ``completed``, ``expired``, and
+  ``superseded`` do not block. Different lane IDs cannot silently duplicate work
+  on the same PR or branch. Read-only observers can opt into report-only claim creation with
   ``--allow-resource-conflicts``.
 - Never deletes rows. Never writes a lane row with a missing
   ``lane_id`` or empty ``owner_session``.
@@ -106,6 +108,7 @@ ALLOWED_STATUSES = (
     "blocked",
     "released",
     "completed",
+    "expired",
     "superseded",
     "conflict",
 )
@@ -152,6 +155,7 @@ ACTIVE_STATUSES = {
     "working",
     "blocked",
 }
+TERMINAL_NON_BLOCKING_STATUSES = {"released", "completed", "expired", "superseded"}
 
 DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
 DEFAULT_STEERING_OUTCOME = "unknown"
@@ -294,7 +298,8 @@ def _active_identity_conflict(
     if not requested or str(normalized.get("status") or "") not in ACTIVE_STATUSES:
         return None
     for existing in rows:
-        if str(existing.get("status") or "") not in ACTIVE_STATUSES:
+        existing_status = str(existing.get("status") or "").strip()
+        if existing_status in TERMINAL_NON_BLOCKING_STATUSES:
             continue
         existing_owner = str(existing.get("owner_session") or "")
         if not existing_owner or existing_owner == owner_session:
@@ -557,7 +562,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-resource-conflicts",
         action="store_true",
         help=(
-            "Allow a claim even if another active owner claims the same "
+            "Allow a claim even if another blocking owner claims the same "
             "pr_number, branch, or worktree. Default is fail-closed for "
             "mutating lane ownership."
         ),

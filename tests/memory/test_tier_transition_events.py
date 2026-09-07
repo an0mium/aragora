@@ -25,13 +25,15 @@ def _make_event(event_type: str, data: dict) -> StreamEvent:
 
 
 class TestTierDemotionRevalidation:
-    """Test _handle_tier_demotion_to_revalidation handler."""
+    """Test _handle_tier_demotion_to_revalidation handler.
+
+    Relocated from BasicHandlersMixin (P4a Batch E2c): it is knowledge-coupled.
+    """
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.basic import BasicHandlersMixin
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
 
-        mixin = BasicHandlersMixin.__new__(BasicHandlersMixin)
-        return mixin._handle_tier_demotion_to_revalidation
+        return KnowledgeEventSubscriber()._handle_tier_demotion_to_revalidation
 
     def test_skips_empty_memory_id(self):
         handler = self._get_handler()
@@ -65,27 +67,19 @@ class TestTierDemotionRevalidation:
         mock_mound.mark_for_revalidation = MagicMock()
 
         with patch(
-            "aragora.events.cross_subscribers.handlers.basic.get_knowledge_mound",
+            "aragora.knowledge.mound.get_knowledge_mound",
+            return_value=mock_mound,
             create=True,
         ):
-            # Need to patch the import inside the handler
-            import aragora.events.cross_subscribers.handlers.basic as basic_mod
-
-            with patch.dict("sys.modules", {}):
-                with patch(
-                    "aragora.knowledge.mound.get_knowledge_mound",
-                    return_value=mock_mound,
-                    create=True,
-                ):
-                    event = _make_event(
-                        "memory_tier_demotion",
-                        {"memory_id": "m1", "from_tier": "medium", "to_tier": "slow"},
-                    )
-                    handler(event)
-                    mock_mound.mark_for_revalidation.assert_called_once_with(
-                        source="continuum:m1",
-                        reason="tier_demotion:medium->slow",
-                    )
+            event = _make_event(
+                "memory_tier_demotion",
+                {"memory_id": "m1", "from_tier": "medium", "to_tier": "slow"},
+            )
+            handler(event)
+            mock_mound.mark_for_revalidation.assert_called_once_with(
+                source="continuum:m1",
+                reason="tier_demotion:medium->slow",
+            )
 
     def test_triggers_revalidation_on_demotion_to_glacial(self):
         handler = self._get_handler()
@@ -150,13 +144,15 @@ class TestTierDemotionRevalidation:
 
 
 class TestTierPromotionToKnowledge:
-    """Test _handle_tier_promotion_to_knowledge handler."""
+    """Test _handle_tier_promotion_to_knowledge handler.
+
+    Relocated from BasicHandlersMixin (P4a Batch E2c): it is knowledge-coupled.
+    """
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.basic import BasicHandlersMixin
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
 
-        mixin = BasicHandlersMixin.__new__(BasicHandlersMixin)
-        return mixin._handle_tier_promotion_to_knowledge
+        return KnowledgeEventSubscriber()._handle_tier_promotion_to_knowledge
 
     def test_skips_empty_memory_id(self):
         handler = self._get_handler()
@@ -201,21 +197,31 @@ class TestTierPromotionToKnowledge:
 
 
 class TestCrossSubscriberRegistration:
-    """Test that tier handlers are registered in CrossSubscriberManager."""
+    """Test that tier handlers are registered in CrossSubscriberManager.
+
+    Both handlers live on ``KnowledgeEventSubscriber`` (P4a Batch E2c) and are
+    wired into the manager only via ``apply_registered_subscribers`` at
+    bootstrap, so these checks use a bootstrapped manager rather than a bare
+    ``CrossSubscriberManager()``.
+    """
+
+    @staticmethod
+    def _bootstrapped_manager():
+        from aragora.events.cross_subscribers import reset_cross_subscriber_manager
+        from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+
+        reset_cross_subscriber_manager()
+        return bootstrap_debate_event_subscribers()
 
     def test_demotion_handler_registered(self):
-        from aragora.events.cross_subscribers.manager import CrossSubscriberManager
-
-        manager = CrossSubscriberManager()
+        manager = self._bootstrapped_manager()
         # Check the subscriber is registered
         subs = manager._subscribers.get(StreamEventType.MEMORY_TIER_DEMOTION, [])
         names = [name for name, _ in subs]
         assert "tier_demotion_to_revalidation" in names
 
     def test_promotion_handler_registered(self):
-        from aragora.events.cross_subscribers.manager import CrossSubscriberManager
-
-        manager = CrossSubscriberManager()
+        manager = self._bootstrapped_manager()
         subs = manager._subscribers.get(StreamEventType.MEMORY_TIER_PROMOTION, [])
         names = [name for name, _ in subs]
         assert "tier_promotion_to_knowledge" in names

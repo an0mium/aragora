@@ -3,16 +3,6 @@ name: Lint
 on:
   push:
     branches: [main]
-    paths:
-      - 'aragora/**'
-      - 'tests/**'
-      - 'scripts/**'
-      - 'AGENTS.md'
-      - 'pyproject.toml'
-      - '.github/workflows/**'
-      - 'deploy/**'
-      - 'security/policies/**'
-      - 'aragora-operator/**'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
@@ -153,6 +143,12 @@ jobs:
       - name: Enforce workflow pip install policy
         run: ${{ steps.lint_python.outputs.python_bin }} scripts/check_workflow_pip_install_policy.py
 
+      - name: Enforce aragora-verify dependency policy
+        run: ${{ steps.lint_python.outputs.python_bin }} scripts/check_aragora_verify_dependency_policy.py
+
+      - name: Enforce Boundary 2 module-edge policy
+        run: ${{ steps.lint_python.outputs.python_bin }} scripts/ci/check_boundary_edges.py
+
       - name: Enforce self-hosted checkout integrity policy
         run: ${{ steps.lint_python.outputs.python_bin }} scripts/check_workflow_checkout_integrity_policy.py
 
@@ -183,12 +179,36 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Evaluate lint result
+        env:
+          CLASSIFIER_RESULT: ${{ needs.changes.result }}
+          WORKER_RESULT: ${{ needs.lint-run.result }}
+          IN_SCOPE: ${{ needs.changes.outputs.python }}
         run: |
-          if [[ "${{ needs.lint-run.result }}" == "failure" ]]; then
-            echo "::error::Lint checks failed"
+          set -euo pipefail
+          if [[ "$CLASSIFIER_RESULT" != "success" ]]; then
+            echo "::error::Change classification concluded '$CLASSIFIER_RESULT'; its scope verdict cannot be trusted. Failing closed."
             exit 1
           fi
-          echo "Lint passed (or skipped — no Python-relevant changes)"
+          case "$IN_SCOPE" in
+            true)
+              if [[ "$WORKER_RESULT" != "success" ]]; then
+                echo "::error::Lint concluded '$WORKER_RESULT' (expected 'success'). Failing closed."
+                exit 1
+              fi
+              echo "Lint passed."
+              ;;
+            false)
+              if [[ "$WORKER_RESULT" != "skipped" ]]; then
+                echo "::error::Lint was out of scope but concluded '$WORKER_RESULT'. Failing closed."
+                exit 1
+              fi
+              echo "Lint not required — no Python-relevant changes."
+              ;;
+            *)
+              echo "::error::Change classification produced invalid IN_SCOPE value '$IN_SCOPE' (expected exactly 'true' or 'false'). Failing closed."
+              exit 1
+              ;;
+          esac
 
   connector-exception-hygiene:
     runs-on: ubuntu-latest
@@ -466,12 +486,36 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Evaluate typecheck result
+        env:
+          CLASSIFIER_RESULT: ${{ needs.changes.result }}
+          WORKER_RESULT: ${{ needs.typecheck-run.result }}
+          IN_SCOPE: ${{ needs.changes.outputs.python }}
         run: |
-          if [[ "${{ needs.typecheck-run.result }}" == "failure" ]]; then
-            echo "::error::Type check failed"
+          set -euo pipefail
+          if [[ "$CLASSIFIER_RESULT" != "success" ]]; then
+            echo "::error::Change classification concluded '$CLASSIFIER_RESULT'; its scope verdict cannot be trusted. Failing closed."
             exit 1
           fi
-          echo "Type check passed (or skipped — no Python-relevant changes)"
+          case "$IN_SCOPE" in
+            true)
+              if [[ "$WORKER_RESULT" != "success" ]]; then
+                echo "::error::Type check concluded '$WORKER_RESULT' (expected 'success'). Failing closed."
+                exit 1
+              fi
+              echo "Type check passed."
+              ;;
+            false)
+              if [[ "$WORKER_RESULT" != "skipped" ]]; then
+                echo "::error::Type check was out of scope but concluded '$WORKER_RESULT'. Failing closed."
+                exit 1
+              fi
+              echo "Type check not required — no Python-relevant changes."
+              ;;
+            *)
+              echo "::error::Change classification produced invalid IN_SCOPE value '$IN_SCOPE' (expected exactly 'true' or 'false'). Failing closed."
+              exit 1
+              ;;
+          esac
 
   typecheck-core:
     runs-on: ubuntu-latest
@@ -633,7 +677,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24.18.0"
           cache: "npm"
           cache-dependency-path: aragora/live/package-lock.json
 
@@ -696,7 +740,9 @@ jobs:
       - name: Install security tools
         run: |
           python -m pip install --upgrade pip
-          python -m pip install bandit safety
+          # safety runs pinned in its own venv in the dependency-check step below;
+          # only bandit is needed in this base env.
+          python -m pip install bandit
 
       - name: Run Bandit security scan
         run: |
@@ -708,9 +754,22 @@ jobs:
       - name: Check dependencies for vulnerabilities
         run: |
           python -m pip install -e .
+          # Capture the project's resolved deps (drop the editable self-install)
+          # so safety scans them without sharing the project's environment.
+          python -m pip freeze --exclude-editable > /tmp/aragora-deps.txt
+          # Run safety in an ISOLATED venv: aragora requires typer>=0.26.7 while
+          # safety pins typer<0.26.0, so installing the project into safety's env
+          # breaks the safety CLI. Isolating safety satisfies both pins.
+          python -m venv /tmp/safety-env
+          /tmp/safety-env/bin/python -m pip install --upgrade pip
+          # Pin Safety so this REQUIRED gate is reproducible (a future Safety
+          # release could change/remove `check` or require an API key); no
+          # --quiet so the installed version is visible in CI logs.
+          /tmp/safety-env/bin/python -m pip install "safety==3.8.1"
+          /tmp/safety-env/bin/safety --version
           # Blocking: fail on HIGH/CRITICAL vulnerabilities.
           # --ignore 70612: Known false positive / accepted risk.
-          safety check --full-report --ignore 70612
+          /tmp/safety-env/bin/safety check --full-report --ignore 70612 -r /tmp/aragora-deps.txt
 
   secrets:
     runs-on: ubuntu-latest

@@ -459,7 +459,7 @@ async def create_debate(task: str, background_tasks: BackgroundTasks):
     background_tasks.add_task(run_debate)
     return {"debate_id": debate_id, "status": "started"}
 
-@app.get("/debates/\{debate_id\}")
+@app.get("/debates/{debate_id}")
 async def get_debate(debate_id: str):
     """Get debate result."""
     result = await get_stored_result(debate_id)

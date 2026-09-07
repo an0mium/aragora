@@ -27,21 +27,32 @@ logger = logging.getLogger(__name__)
 # These mirror PROVIDER_PRICING from usage.py but can be overridden per-instance.
 DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
     "anthropic": {
+        "claude-fable-5": (Decimal("10.00"), Decimal("50.00")),
+        "claude-opus-5": (Decimal("5.00"), Decimal("25.00")),
+        "claude-opus-4-8": (Decimal("5.00"), Decimal("25.00")),
+        "claude-opus-4-7": (Decimal("5.00"), Decimal("25.00")),
         "claude-opus-4.8": (Decimal("5.00"), Decimal("25.00")),
         "claude-opus-4.7": (Decimal("5.00"), Decimal("25.00")),
         "claude-opus-4": (Decimal("5.00"), Decimal("25.00")),
         "claude-sonnet-4.6": (Decimal("3.00"), Decimal("15.00")),
         "claude-sonnet-4": (Decimal("3.00"), Decimal("15.00")),
-        "claude-haiku-4.5": (Decimal("0.80"), Decimal("4.00")),
+        "claude-haiku-3": (Decimal("0.25"), Decimal("1.25")),
+        "claude-haiku-4-5": (Decimal("1.00"), Decimal("5.00")),
+        "claude-haiku-4-5-20251001": (Decimal("1.00"), Decimal("5.00")),
+        "claude-haiku-4.5": (Decimal("1.00"), Decimal("5.00")),
     },
     "openai": {
+        "gpt-5.6-sol": (Decimal("5.00"), Decimal("30.00")),
+        "gpt-5.5": (Decimal("5.00"), Decimal("30.00")),  # repriced ~2026-07-14
         "gpt-4.1": (Decimal("2.00"), Decimal("8.00")),
         "gpt-4.1-mini": (Decimal("0.40"), Decimal("1.60")),
         "gpt-4o": (Decimal("2.50"), Decimal("10.00")),
         "gpt-4o-mini": (Decimal("0.15"), Decimal("0.60")),
     },
     "google": {
+        "gemini-3.5-flash": (Decimal("1.50"), Decimal("9.00")),
         "gemini-3.1-pro": (Decimal("2.00"), Decimal("12.00")),
+        "gemini-3.1-pro-preview": (Decimal("2.00"), Decimal("12.00")),
         "gemini-3-flash": (Decimal("0.50"), Decimal("3.00")),
         "gemini-pro": (Decimal("1.25"), Decimal("5.00")),
     },
@@ -63,6 +74,27 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
     },
     "openrouter": {
         "default": (Decimal("2.00"), Decimal("8.00")),
+        "anthropic/claude-fable-5": (Decimal("10.00"), Decimal("50.00")),
+        "openai/gpt-5.6-sol": (Decimal("5.00"), Decimal("30.00")),
+        "qwen/qwen3.8-max": (Decimal("2.00"), Decimal("6.00")),
+        "qwen/qwen3.7-max": (Decimal("1.475"), Decimal("4.425")),
+        "moonshotai/kimi-k3": (Decimal("3.00"), Decimal("15.00")),
+        "moonshotai/kimi-k2.7-code": (Decimal("0.71"), Decimal("3.50")),
+        "perplexity/sonar-reasoning-pro": (Decimal("2.00"), Decimal("8.00")),
+        "cohere/command-a": (Decimal("2.50"), Decimal("10.00")),
+        "ai21/jamba-large-1.7": (Decimal("2.00"), Decimal("8.00")),
+        "openai/gpt-5.5": (Decimal("5.00"), Decimal("30.00")),
+        "google/gemini-3.5-flash": (Decimal("1.50"), Decimal("9.00")),
+        "anthropic/claude-opus-4-8": (Decimal("5.00"), Decimal("25.00")),
+        "anthropic/claude-opus-4.8": (Decimal("5.00"), Decimal("25.00")),
+        "anthropic/claude-opus-4-7": (Decimal("5.00"), Decimal("25.00")),
+        "anthropic/claude-opus-4.7": (Decimal("5.00"), Decimal("25.00")),
+        "anthropic/claude-haiku-4-5": (Decimal("1.00"), Decimal("5.00")),
+        "anthropic/claude-haiku-4.5": (Decimal("1.00"), Decimal("5.00")),
+        "anthropic/claude-haiku-4-5-20251001": (
+            Decimal("1.00"),
+            Decimal("5.00"),
+        ),
     },
 }
 

@@ -251,7 +251,7 @@ async def run_debate(task: str, agents: list):
         span.set_attribute("debate.agent_count", len(agents))
 
         for round_num in range(3):
-            with tracer.start_as_current_span(f"debate.round.\{round_num\}") as round_span:
+            with tracer.start_as_current_span(f"debate.round.{round_num}") as round_span:
                 # Round logic here
                 round_span.set_attribute("round.number", round_num)
 ```

@@ -120,7 +120,7 @@ services:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: aragora
-      POSTGRES_PASSWORD: $\{POSTGRES_PASSWORD\}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: aragora
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -284,6 +284,6 @@ SQLite may lock files during writes. If experiencing lock issues:
 
 ## Related Documentation
 
-- [DISASTER_RECOVERY.md](../operations/disaster-recovery-runbook) - Backup and recovery procedures
+- [DISASTER_RECOVERY.md](./disaster-recovery) - Backup and recovery procedures
 - [RUNBOOK_DATABASE_ISSUES.md](../operations/runbook-database) - Database troubleshooting and recovery
 - [SCALING.md](../operations/scaling) - Scaling guidelines

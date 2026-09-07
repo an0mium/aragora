@@ -27,7 +27,9 @@ This document provides a comprehensive inventory of Aragora's features organized
 | [Developer Tools](#8-developer-tools) | 35+ | Stable |
 | [Self-Improvement](#9-self-improvement--nomic-loop) | 18+ | Stable |
 
-**Total**: 230+ features | 3,800+ Python modules | 210,000+ tests | 3,100+ API operations across 2,600+ paths
+<!-- metrics:begin feature-discovery-total -->
+**Total**: 230+ features | 4,310 Python files | 226,053 tests | 3,205 API operations across 2,912 paths
+<!-- metrics:end -->
 
 ---
 
@@ -74,14 +76,14 @@ This document provides a comprehensive inventory of Aragora's features organized
 | Feature | Status | Description | Key Files |
 |---------|--------|-------------|-----------|
 | **ArenaConfig** | Stable | Centralized debate configuration with 40+ options | `aragora/debate/arena_config.py` |
-| **DebateProtocol** | Stable | Protocol parameters (rounds, consensus, concurrency) | `aragora/core.py` |
+| **DebateProtocol** | Stable | Protocol parameters (rounds, consensus, concurrency) | `aragora/core/` |
 | **Orchestrator Hooks** | Stable | Extension points for custom logic | `aragora/debate/orchestrator_hooks.py` |
 
 ---
 
 ## 2. Agent System
 
-### Supported Providers (43 agent types)
+### Supported Providers
 
 | Provider | Type | Models | Key Files |
 |----------|------|--------|-----------|
@@ -136,7 +138,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | **Memory Viewer** | Stable | HTML viewer for memory inspection | `aragora/server/handlers/memory/memory.py` | |
 | **Tool Usage Capture** | Optional | Opt-in tool usage capture into FAST tier | `aragora/memory/capture.py` | |
 | **Unified Memory Gateway** | Integrated | Fan-out query across ContinuumMemory, KM, Supermemory, claude-mem via `enable_unified_memory`; handler availability still depends on optional unified-memory backends | `aragora/memory/gateway.py`, `aragora/memory/retention_gate.py`, `aragora/memory/dedup.py` | |
-| **ClaudeMemAdapter** | Integrated | KM adapter wrapping claude-mem MCP connector (one of 42 registered adapter specs) | `aragora/knowledge/mound/adapters/claude_mem_adapter.py` | |
+| **ClaudeMemAdapter** | Integrated | KM adapter wrapping claude-mem MCP connector (one of the registered adapter specs; count in `docs/METRICS.md`) | `aragora/knowledge/mound/adapters/claude_mem_adapter.py` | |
 
 ### Unified Memory Gateway Components
 

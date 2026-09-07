@@ -161,15 +161,24 @@ def _check_directory_freshness(
     crit_h: float,
     expect_nonempty: bool = True,
     glob: str = "*",
+    max_status: str | None = None,
+    informational: bool = False,
 ) -> SurfaceCheck:
     """Build a SurfaceCheck for a directory containing dated artifacts."""
     if not directory.exists():
+        status = STATUS_MISSING
+        missing_extra: dict[str, object] = {}
+        if informational and directory.parent.exists():
+            if max_status is not None and _SEVERITY_RANK[status] > _SEVERITY_RANK[max_status]:
+                status = max_status
+            missing_extra["informational"] = True
         return SurfaceCheck(
             name=name,
-            status=STATUS_MISSING,
+            status=status,
             count=0,
             path=str(directory),
             detail=f"directory does not exist: {directory}",
+            extra=missing_extra,
         )
     newest_path, newest_mtime, count = _newest_in_dir(directory, glob=glob)
     if count == 0:
@@ -183,6 +192,11 @@ def _check_directory_freshness(
     now = _now()
     age = _age_hours(newest_mtime, now) if newest_mtime is not None else None
     status = _classify_age(age, warn_h, crit_h) if age is not None else STATUS_AGING
+    if max_status is not None and _SEVERITY_RANK[status] > _SEVERITY_RANK[max_status]:
+        status = max_status
+    extra: dict[str, object] = {}
+    if informational:
+        extra["informational"] = True
     return SurfaceCheck(
         name=name,
         status=status,
@@ -191,6 +205,7 @@ def _check_directory_freshness(
         age_hours=age,
         path=str(directory),
         detail=f"newest: {newest_path.name}" if newest_path is not None else None,
+        extra=extra,
     )
 
 
@@ -500,7 +515,8 @@ def _check_boss_loop_log(
     except OSError:
         pass
 
-    if last_terminal_event in {"traceback", "crash", "exit_fail"}:
+    active_failure = last_terminal_event in {"traceback", "crash", "exit_fail"}
+    if active_failure:
         status = STATUS_STALE
 
     extra: dict[str, object] = {
@@ -510,9 +526,9 @@ def _check_boss_loop_log(
         "exits_fail_total": exits_fail_total,
         "last_terminal_event": last_terminal_event or None,
     }
-    if latest_failure:
+    if active_failure and latest_failure:
         extra["latest_failure"] = latest_failure[-240:]
-    if latest_failure_signature:
+    if active_failure and latest_failure_signature:
         extra["latest_failure_signature"] = latest_failure_signature[-240:]
     if latest_python_warning:
         extra["latest_python_warning"] = latest_python_warning[-240:]
@@ -524,9 +540,9 @@ def _check_boss_loop_log(
         f"tracebacks={tracebacks_total} crashes={crashes_total} "
         f"ok={exits_ok_total} fail={exits_fail_total}"
     )
-    if latest_failure:
+    if active_failure and latest_failure:
         detail = f"{detail}; latest_failure={latest_failure[-120:]}"
-    if latest_failure_signature and latest_failure_signature != latest_failure:
+    if active_failure and latest_failure_signature and latest_failure_signature != latest_failure:
         detail = f"{detail}; failure_signature={latest_failure_signature[-120:]}"
     checkout_status = extra.get("runtime_checkout_status")
     if checkout_status and checkout_status != "current":
@@ -642,6 +658,8 @@ def gather_health(
             crit_h=warn_hours_briefs * crit_multiplier,
             expect_nonempty=False,
             glob="pr-*.json",
+            max_status=STATUS_AGING,
+            informational=True,
         )
     )
 
