@@ -53,7 +53,10 @@ def _clip(text: str, limit: int) -> str:
     encoded = text.encode("utf-8")
     if len(encoded) <= limit:
         return text
-    return encoded[: limit - len(_TRUNCATED)].decode("utf-8", errors="ignore") + _TRUNCATED
+    kept = encoded[: limit - len(_TRUNCATED)].decode("utf-8", errors="ignore")
+    if kept.rfind("&") > kept.rfind(";"):
+        kept = kept[: kept.rfind("&")]
+    return kept + _TRUNCATED
 
 
 def _safe_text(value: Any, *, inline: bool = False) -> str:
@@ -111,6 +114,15 @@ def compose_advisory_dissent_summary(outcome: CollectOutcome | dict, *, head_sha
         regime = "severity-gated dissent ON; P2/P3 findings are advisory to the merge gate."
     else:
         regime = "unknown (outcome carries no severity_gated field)."
+    raw = data.get("dissenting_families")
+    dissent = "unknown (outcome carries no gate dissent list)."
+    if isinstance(raw, list):
+        names = (canonical_family(str(name)) for name in raw)
+        gate_families = {
+            name if re.fullmatch(r"[a-z]+", name) and not _TOKENS.search(name) else "unknown"
+            for name in names
+        }
+        dissent = (", ".join(sorted(gate_families)) or "none") + "."
     lines = [
         marker,
         "",
@@ -118,6 +130,7 @@ def compose_advisory_dissent_summary(outcome: CollectOutcome | dict, *, head_sha
         "",
         summary,
         f"Gate regime: {regime}",
+        f"Merge-gate dissent: {dissent}",
         "",
         "### Family outcomes",
     ]
@@ -180,7 +193,7 @@ def post_advisory_summary(repo: str, pr: int, body: str, *, head_sha: str) -> Ad
         endpoint = f"repos/{repo}/issues/{pr}/comments"
         result = merge_quorum_io.run(
             ["gh", "api", endpoint + "?per_page=100", "--paginate", "--slurp"],
-            env=env,
+            env=merge_quorum_io._read_env(),
             timeout=60,
         )
         if result.returncode:
