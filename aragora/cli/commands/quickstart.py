@@ -1523,7 +1523,7 @@ async def _can_reach_provider_tls(provider: str) -> tuple[bool, str | None]:
             return False, "CERTIFICATE_VERIFY_FAILED"
         detail = str(exc).strip() or type(exc).__name__
         return False, detail
-    except (OSError, TimeoutError, ConnectionError) as exc:
+    except (OSError, asyncio.TimeoutError, ConnectionError) as exc:
         if _is_tls_verification_failure(exc):
             return False, "CERTIFICATE_VERIFY_FAILED"
         detail = str(exc).strip() or type(exc).__name__

@@ -716,6 +716,38 @@ class TestLiveQuickstartHelpers:
         assert detail == "CERTIFICATE_VERIFY_FAILED"
 
     @pytest.mark.asyncio
+    async def test_can_reach_provider_tls_returns_unreachable_on_timeout(self, monkeypatch):
+        async def blocked_connection(*args, **kwargs):
+            await asyncio.Event().wait()
+
+        monkeypatch.setattr("aragora.cli.commands.quickstart._LIVE_PRECHECK_TIMEOUT_SECONDS", 0.01)
+        with patch(
+            "aragora.cli.commands.quickstart.asyncio.open_connection",
+            new=AsyncMock(side_effect=blocked_connection),
+        ) as connection:
+            ok, detail = await _can_reach_provider_tls("openai-api")
+
+        assert ok is False
+        assert detail == "TimeoutError"
+        connection.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_can_reach_provider_tls_handles_distinct_asyncio_timeout(self, monkeypatch):
+        class LegacyAsyncioTimeoutError(Exception):
+            pass
+
+        # Python 3.10's asyncio timeout is not the builtin TimeoutError.
+        monkeypatch.setattr(asyncio, "TimeoutError", LegacyAsyncioTimeoutError)
+        with patch(
+            "aragora.cli.commands.quickstart.asyncio.open_connection",
+            new=AsyncMock(side_effect=LegacyAsyncioTimeoutError("TLS probe timed out")),
+        ):
+            ok, detail = await _can_reach_provider_tls("openai-api")
+
+        assert ok is False
+        assert detail == "TLS probe timed out"
+
+    @pytest.mark.asyncio
     async def test_can_reach_provider_tls_ignores_close_noise_after_handshake(self):
         writer = MagicMock()
         writer.wait_closed = AsyncMock(side_effect=ConnectionResetError("socket closed"))
@@ -1540,8 +1572,9 @@ class TestCmdQuickstart:
         assert "Falling back to demo" in output
         assert "RESULT" in output  # Demo result was displayed
 
+    @pytest.mark.parametrize("tls_timeout", [False, True])
     def test_configured_but_unreachable_provider_falls_back_after_live_attempt(
-        self, tmp_path, monkeypatch, capsys
+        self, tmp_path, monkeypatch, capsys, tls_timeout
     ):
         monkeypatch.chdir(tmp_path)
         args = argparse.Namespace(
@@ -1573,8 +1606,12 @@ class TestCmdQuickstart:
                 return_value=[("gemini", "gemini-2.0-flash")],
             ),
             patch(
-                "aragora.cli.commands.quickstart._can_reach_provider_tls",
-                new=AsyncMock(return_value=(False, "connection refused")),
+                "aragora.cli.commands.quickstart.asyncio.open_connection"
+                if tls_timeout
+                else "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=AsyncMock(side_effect=asyncio.TimeoutError("TLS probe timed out"))
+                if tls_timeout
+                else AsyncMock(return_value=(False, "connection refused")),
             ),
             patch(
                 "aragora.cli.commands.quickstart._run_live_debate",
