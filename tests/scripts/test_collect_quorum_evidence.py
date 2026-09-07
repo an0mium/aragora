@@ -1,7 +1,6 @@
 """The wrapper adds advisory delivery without changing collection semantics."""
 
 import json
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -27,6 +26,7 @@ def collected(monkeypatch):
                 body="- [P3] Minor",
                 verdict="pass",
                 would_count=True,
+                severity_gated=True,
             )
         ],
     ).to_dict()
@@ -64,9 +64,11 @@ def test_default_off_json_keys(collected, capsys):
 
 
 @pytest.mark.parametrize("prepared", [False, True])
-def test_flag_plumbing_fresh_and_prepared(collected, capsys, prepared):
+def test_flag_plumbing_fresh_and_prepared(collected, capsys, prepared, tmp_path):
     original, collector, poster = collected
-    flags = ["--prepared-json", "/tmp/prepared.json"] if prepared else []
+    path = tmp_path / "prepared.json"
+    path.write_text(json.dumps(original))
+    flags = ["--prepared-json", str(path)] if prepared else []
     assert (
         cli.main(
             ARGS
@@ -93,12 +95,32 @@ def test_flag_plumbing_fresh_and_prepared(collected, capsys, prepared):
     assert data["advisory_comment_url"] == "https://example.test/comment"
     assert all(data[key] == value for key, value in original.items())
     kwargs = collector.call_args.kwargs
-    assert kwargs["prepared_json"] == (Path("/tmp/prepared.json") if prepared else None)
+    assert kwargs["prepared_json"] == (path if prepared else None)
     assert kwargs["families"] == ["claude", "openai"] and kwargs["author"] == "x"
     assert kwargs["apply"] is True
     assert kwargs["reviewer_timeout_seconds"] == 30 and kwargs["overall_timeout_seconds"] == 60
     poster.assert_called_once()
     assert poster.call_args.kwargs["head_sha"] == original["head_sha"]
+
+
+@pytest.mark.parametrize("artifact", ["stale", "missing", "malformed", "[]", "null", "{}"])
+def test_prepared_json_stale_head_not_summarised(collected, capsys, tmp_path, artifact):
+    data, _, poster = collected
+    path = tmp_path / "prepared.json"
+    if artifact != "missing":
+        path.write_text(
+            json.dumps(dict(data, head_sha="b" * 40)) if artifact == "stale" else artifact
+        )
+    assert cli.main(ARGS + ["--prepared-json", str(path), "--post-advisory-summary", "--json"]) == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["advisory_posted"] is False
+    reason = output["advisory_reason"]
+    assert reason == (
+        "prepared head bbbbbbb differs from live head aaaaaaa; not summarised"
+        if artifact == "stale"
+        else "prepared artifact unreadable; not summarised"
+    )
+    poster.assert_not_called()
 
 
 def test_empty_items_never_calls_poster(collected, capsys):
@@ -135,6 +157,23 @@ def test_collect_failure_payload(collected, capsys):
     data.update(mode="collect_evidence", error="preflight failed")
     assert cli.main(ARGS + ["--post-advisory-summary"]) == 2
     assert "error: preflight failed" in capsys.readouterr().out
+    poster.assert_not_called()
+
+
+@pytest.mark.parametrize("payload", ["", "diagnostic text", "[]", "null"])
+def test_malformed_capture_failure_preserves_exit(collected, capsys, payload):
+    _, collector, poster = collected
+
+    def run(**kwargs):
+        if payload:
+            kwargs["printer"](payload)
+        return 2
+
+    collector.side_effect = run
+    assert cli.main(ARGS + ["--post-advisory-summary", "--json"]) == 2
+    data = json.loads(capsys.readouterr().out)
+    assert data["error"] == "collection outcome was not a JSON object"
+    assert data["advisory_posted"] is False
     poster.assert_not_called()
 
 

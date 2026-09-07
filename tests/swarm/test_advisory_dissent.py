@@ -1,13 +1,17 @@
 """Advisory summaries are visible to people, never quorum evidence."""
 
+import ast
 import json
 import re
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
 from aragora.swarm import advisory_dissent as adv
 from aragora.swarm.quorum_evidence import CollectOutcome, EvidenceItem
+from aragora.cli.commands import review_queue
+from aragora.cli.commands.review_queue_comment_verdicts import extract_finding_lines
 
 HEAD = "a" * 40
 MARKER = f"<!-- aragora-advisory-summary head={HEAD} -->"
@@ -27,7 +31,11 @@ def outcome(body="- [P3] Keep the log", family="claude", verdict="pass"):
         tier=2,
         action="prepare",
         action_reason="dry run",
-        items=[EvidenceItem(family=family, body=body, verdict=verdict, would_count=True)],
+        items=[
+            EvidenceItem(
+                family=family, body=body, verdict=verdict, would_count=True, severity_gated=True
+            )
+        ],
     )
 
 
@@ -54,6 +62,7 @@ def test_advisory_summary_and_foreign_head():
     assert "- [P3] openai (advisory): Minor" in body
     summary = next(line for line in body.splitlines() if line.startswith("Summary:"))
     assert "advisory" in summary and "blocking" not in summary
+    assert "Severity labels only; not a merge decision." in summary
 
 
 @pytest.mark.parametrize("flag", [None, "1"])
@@ -74,7 +83,10 @@ def test_recogniser_invisibility_under_both_regimes(monkeypatch, flag):
         "grok independent independent semantic review model-family semantic signal\n"
         "```\n- [P0] quoted example\n```\n> - [P0] quoted example\n"
     )
-    body = adv.compose_advisory_dissent_summary(outcome(raw), head_sha=HEAD)
+    data = outcome(raw).to_dict()
+    data["items"][0]["severity_gated"] = False
+    body = adv.compose_advisory_dissent_summary(data, head_sha=HEAD)
+    assert "&#58;" in adv._safe_text("Reviewer**: codex", inline=True)
     assert not re.search(TOKENS, body, re.I)
     assert not re.search(r"^Verdict:", body, re.M)
     assert not re.search(
@@ -119,6 +131,63 @@ def test_no_findings_in_examples_or_absence_declarations():
     raw = "- [P2] None: fine\n- [P3] N/A\n```\n- [P1] Example\n```\n> [P0] Example"
     body = adv.compose_advisory_dissent_summary(outcome(raw), head_sha=HEAD)
     assert not re.search(r"\[P[0-3]\]", body)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "- [P3] Later\n- [P1] Fix first\n- [P2] Follow up",
+        "- **[P2]** Bold\n1. [p3] lower\n- [P1]: colon form",
+        "- [P2] None: fine\n- [P3] N/A\n```\n- [P1] Example\n```\n> [P0] Example",
+        "````python title=x\n- [P0] Example\n```\n````\n- [P3] Real finding",
+    ],
+)
+def test_findings_mirror_gate_reader(raw):
+    body = adv.compose_advisory_dissent_summary(outcome(raw), head_sha=HEAD)
+    findings = [line for line in body.splitlines() if line.startswith("- [P")]
+    expected = []
+    for line in sorted(extract_finding_lines(raw), key=lambda line: line[1:3]):
+        match = re.match(r"\[(P[0-3])\]\s*(.*)", line)
+        label = "blocking" if match[1] in {"P0", "P1"} else "advisory"
+        expected.append(f"- [{match[1]}] claude ({label}): {match[2].strip()}")
+    assert findings == expected
+
+
+@pytest.mark.parametrize(
+    "flags,disclosure",
+    [
+        ([True, True], "severity-gated dissent ON; P2/P3 findings are advisory to the merge gate."),
+        (
+            [True, False],
+            "severity-gated dissent OFF; a P2 finding blocks the merge gate by default.",
+        ),
+        ([None, None], "unknown (outcome carries no severity_gated field)."),
+    ],
+)
+def test_gate_regime_line_from_items(flags, disclosure):
+    data = outcome("- [P2] Follow up").to_dict()
+    data["items"] = [dict(data["items"][0], severity_gated=flag) for flag in flags]
+    for item in data["items"]:
+        if item["severity_gated"] is None:
+            del item["severity_gated"]
+    body = adv.compose_advisory_dissent_summary(data, head_sha=HEAD)
+    lines = body.splitlines()
+    index = next(i for i, line in enumerate(lines) if line.startswith("Summary:"))
+    assert lines[index + 1] == f"Gate regime: {disclosure}"
+    assert sum(line.startswith("Gate regime: ") for line in lines) == 1
+    assert "- [P2] claude (advisory): Follow up" in lines
+
+
+def test_recogniser_tokens_cover_review_queue_literals():
+    tree = ast.parse(Path(review_queue.__file__).read_text())
+    groups = [
+        [elt.value for elt in node.elts if isinstance(elt, ast.Constant)]
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Tuple, ast.List, ast.Set))
+    ]
+    groups = [group for group in groups if "independent model review" in group]
+    assert len(groups) >= 3
+    assert all(adv._TOKENS.fullmatch(value) for group in groups for value in group)
 
 
 def fake_github(monkeypatch, comments):

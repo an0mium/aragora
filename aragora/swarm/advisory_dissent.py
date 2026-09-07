@@ -15,11 +15,11 @@ import subprocess
 from dataclasses import dataclass
 from typing import Any
 
+from aragora.cli.commands.review_queue_comment_verdicts import extract_finding_lines
 from aragora.swarm.quorum_evidence import (
     CollectOutcome,
     _neutralize_reviewer_text,
     canonical_family,
-    has_blocking_finding_or_label,
     merge_quorum_io,
 )
 
@@ -30,7 +30,6 @@ _TOKENS = re.compile(
     re.I,
 )
 _PRIORITY = re.compile(r"\[P([0-3])\]", re.I)
-_FINDING = re.compile(r"^\[(P[0-3])\](?:\*\*)?(?:\s|$|[:.;—–-])(.*)", re.I)
 _BODY_LIMIT = 60000
 _EXCERPT_LIMIT = 8000
 _TRUNCATED = "[truncated]"
@@ -65,7 +64,7 @@ def _safe_text(value: Any, *, inline: bool = False) -> str:
         text = _TOKENS.sub(lambda m: f"{m[0][0]}&#{ord(m[0][1])};{m[0][2:]}", text)
     text = _PRIORITY.sub(r"(P\1)", text)
     return re.sub(
-        r"((?:model family|reviewer harness|transport grounding|reviewer)\s*):",
+        r"((?:model family|reviewer harness|transport grounding|reviewer)[\s*_]*):",
         r"\1&#58;",
         text,
         flags=re.I,
@@ -74,21 +73,10 @@ def _safe_text(value: Any, *, inline: bool = False) -> str:
 
 def _findings(body: str) -> list[tuple[str, str]]:
     findings: list[tuple[str, str]] = []
-    in_fence = False
-    for raw in body.splitlines():
-        line = raw.strip()
-        if re.fullmatch(r"(?:`{3,}|~{3,})(?:[\w.+-]+)?", line):
-            in_fence = not in_fence
-            continue
-        if in_fence or line.startswith(">") or raw.startswith(("    ", "\t")):
-            continue
-        line = re.sub(r"^(?:[#\-*+\s]+|\d+[.)]\s+)+", "", line)
-        match = _FINDING.match(line)
+    for line in extract_finding_lines(body):
+        match = re.match(r"\[(P[0-3])\]\s*(.*)", line)
         if match:
-            severity, detail = match[1].upper(), match[2].lstrip(" :.;—–-")
-            # Reuse the library's absence-declaration rules at every priority.
-            if has_blocking_finding_or_label(f"[P1] {detail}"):
-                findings.append((severity, detail))
+            findings.append((match[1], match[2].strip()))
     return findings
 
 
@@ -115,7 +103,24 @@ def compose_advisory_dissent_summary(outcome: CollectOutcome | dict, *, head_sha
         if blocking
         else f"Summary: {len(findings)} advisory findings."
     )
-    lines = [marker, "", "## Collection summary", "", summary, "", "### Family outcomes"]
+    summary += " Severity labels only; not a merge decision."
+    flags = [item.get("severity_gated") for item in items]
+    if any(flag is False for flag in flags):
+        regime = "severity-gated dissent OFF; a P2 finding blocks the merge gate by default."
+    elif all(flag is True for flag in flags):
+        regime = "severity-gated dissent ON; P2/P3 findings are advisory to the merge gate."
+    else:
+        regime = "unknown (outcome carries no severity_gated field)."
+    lines = [
+        marker,
+        "",
+        "## Collection summary",
+        "",
+        summary,
+        f"Gate regime: {regime}",
+        "",
+        "### Family outcomes",
+    ]
     for family, item in zip(families, items):
         verdict = str(item.get("verdict") or "unknown")
         verdict = verdict if verdict in {"pass", "changes_requested", "unknown"} else "unknown"

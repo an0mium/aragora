@@ -138,7 +138,12 @@ def main(argv: list[str] | None = None) -> int:
         reviewer_timeout_seconds=args.reviewer_timeout,
         overall_timeout_seconds=args.overall_timeout,
     )
-    outcome = json.loads("\n".join(captured))
+    try:
+        outcome = json.loads("\n".join(captured))
+        if not isinstance(outcome, dict):
+            raise ValueError("expected an object")
+    except ValueError:
+        outcome = {"error": "collection outcome was not a JSON object"}
     outcome.update(
         advisory_posted=False,
         advisory_comment_url=None,
@@ -146,8 +151,25 @@ def main(argv: list[str] | None = None) -> int:
         advisory_edited=False,
     )
     if args.post_advisory_summary:
+        skip_reason = None
         if not outcome.get("items"):
-            outcome["advisory_reason"] = "items: []; no reviewer output"
+            skip_reason = "items: []; no reviewer output"
+        elif args.prepared_json:
+            try:
+                prepared = json.loads(args.prepared_json.read_text())
+                prepared_head = prepared.get("head_sha") if isinstance(prepared, dict) else None
+                if not isinstance(prepared_head, str):
+                    raise ValueError("missing prepared head")
+                live_head = str(outcome.get("head_sha") or "")
+                if prepared_head != live_head:
+                    skip_reason = (
+                        f"prepared head {prepared_head[:7]} differs from live head "
+                        f"{live_head[:7]}; not summarised"
+                    )
+            except (OSError, ValueError):
+                skip_reason = "prepared artifact unreadable; not summarised"
+        if skip_reason:
+            outcome["advisory_reason"] = skip_reason
         else:
             try:
                 from aragora.swarm.advisory_dissent import (
