@@ -89,11 +89,7 @@ class AgentRegistrationRecord:
         if not isinstance(raw_caps, list):
             raise RegistrationError("capabilities must be a list")
         raw_ts = data.get("registered_at")
-        ts = (
-            datetime.fromisoformat(str(raw_ts))
-            if raw_ts
-            else datetime.now(tz=UTC)
-        )
+        ts = datetime.fromisoformat(str(raw_ts)) if raw_ts else datetime.now(tz=UTC)
         return cls(
             agent_id=str(data["agent_id"]),
             capabilities=frozenset(str(c) for c in raw_caps),
@@ -119,8 +115,7 @@ class RegistrationStore:
     def put(self, record: AgentRegistrationRecord, *, overwrite: bool = False) -> None:
         if record.agent_id in self._records and not overwrite:
             raise RegistrationError(
-                f"Agent '{record.agent_id}' is already registered. "
-                "Pass overwrite=True to replace."
+                f"Agent '{record.agent_id}' is already registered. Pass overwrite=True to replace."
             )
         self._records[record.agent_id] = record
 
@@ -166,8 +161,7 @@ def register_agent(
         raise RegistrationError("At least one capability is required.")
 
     cap_strings: frozenset[str] = frozenset(
-        c.value if isinstance(c, AgentCapability) else str(c)
-        for c in capabilities
+        c.value if isinstance(c, AgentCapability) else str(c) for c in capabilities
     )
     record = AgentRegistrationRecord(
         agent_id=agent_id.strip(),

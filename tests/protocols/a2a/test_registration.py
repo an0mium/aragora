@@ -22,6 +22,7 @@ from aragora.protocols.a2a.types import AgentCapability
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _store() -> RegistrationStore:
     return RegistrationStore()
 
@@ -29,6 +30,7 @@ def _store() -> RegistrationStore:
 # ---------------------------------------------------------------------------
 # Flag gate
 # ---------------------------------------------------------------------------
+
 
 class TestFlagGate:
     def test_disabled_by_default(self, monkeypatch):
@@ -61,6 +63,7 @@ class TestFlagGate:
 # ---------------------------------------------------------------------------
 # Happy path
 # ---------------------------------------------------------------------------
+
 
 class TestRegisterAgent:
     @pytest.fixture(autouse=True)
@@ -153,6 +156,7 @@ class TestRegisterAgent:
 # Lookup
 # ---------------------------------------------------------------------------
 
+
 class TestLookupAgent:
     @pytest.fixture(autouse=True)
     def enable(self, monkeypatch):
@@ -173,6 +177,7 @@ class TestLookupAgent:
 # ---------------------------------------------------------------------------
 # RegistrationStore
 # ---------------------------------------------------------------------------
+
 
 class TestRegistrationStore:
     def test_put_and_get(self):
@@ -219,6 +224,7 @@ class TestRegistrationStore:
 # AgentRegistrationRecord serialization
 # ---------------------------------------------------------------------------
 
+
 class TestSerialization:
     def test_to_dict_round_trip(self):
         rec = AgentRegistrationRecord(
@@ -248,7 +254,9 @@ class TestSerialization:
 
     def test_from_dict_bad_capabilities_raises(self):
         with pytest.raises(RegistrationError, match="capabilities must be a list"):
-            AgentRegistrationRecord.from_dict({
-                "agent_id": "bad",
-                "capabilities": "not-a-list",
-            })
+            AgentRegistrationRecord.from_dict(
+                {
+                    "agent_id": "bad",
+                    "capabilities": "not-a-list",
+                }
+            )
