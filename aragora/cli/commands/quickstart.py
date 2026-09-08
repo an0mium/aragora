@@ -1164,7 +1164,7 @@ async def _run_live_debate(
     run_task = asyncio.create_task(arena.run())
     try:
         result = await asyncio.wait_for(run_task, timeout=_LIVE_DEBATE_TIMEOUT_SECONDS)
-    except TimeoutError as exc:
+    except (asyncio.TimeoutError, TimeoutError) as exc:  # noqa: UP041 - distinct classes on 3.10
         run_task.cancel()
         with contextlib.suppress(asyncio.CancelledError, RuntimeError):
             await run_task
