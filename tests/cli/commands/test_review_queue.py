@@ -119,6 +119,116 @@ def _make_pr(
     }
 
 
+@pytest.fixture
+def in_job_advisory_inputs(monkeypatch: pytest.MonkeyPatch) -> tuple[dict[str, Any], list]:
+    """Mock GitHub inputs, not a live CI execution, for packet-level reachability."""
+    from aragora.cli.commands import review_queue as rq
+
+    head = "a" * 40
+    for flag in (
+        "TIERED_MERGE_GATE",
+        "SEVERITY_GATED_DISSENT",
+        "ADVISORY_DISSENT_SETTLE",
+        "OPERATOR_ADVISORY_SETTLEMENT",
+    ):
+        monkeypatch.setenv(f"ARAGORA_ENABLE_{flag}", "1")
+    monkeypatch.setenv("ARAGORA_SETTLEMENT_CREATOR", "scarmani")
+    monkeypatch.setenv("ARAGORA_TRUSTED_EVIDENCE_POSTERS", "scarmani")
+    monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+    monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+    monkeypatch.setenv("GITHUB_RUN_ID", "26288586838")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+    quorum_row = {
+        "name": "aragora-merge-quorum",
+        "workflowName": "Aragora Merge Quorum",
+        "status": "IN_PROGRESS",
+        "conclusion": "",
+        "detailsUrl": "https://github.com/synaptent/aragora/actions/runs/26288586838/job/1",
+    }
+    green_rows = [
+        {"name": name, "status": "COMPLETED", "conclusion": "SUCCESS"}
+        for name in (
+            "lint",
+            "typecheck",
+            "sdk-parity",
+            "Generate & Validate",
+            "TypeScript SDK Type Check",
+        )
+    ]
+    pr = _make_pr(
+        number=6283,
+        files=["aragora/server/handlers/x.py"],
+        checks=[
+            quorum_row,
+            *green_rows,
+            {"context": "aragora/human-settlement", "state": "SUCCESS"},
+        ],
+    )
+    pr["headRefOid"] = head
+    pr["commits"] = [{"commit": {"committedDate": "2026-07-10T23:00:00Z"}}]
+    pr["comments"] = [
+        {
+            "author": {"login": "scarmani"},
+            "createdAt": "2026-07-11T00:00:00Z",
+            "body": (
+                f"## {family} independent model review\n**Model family:** {family}\n"
+                f"Current head: {head}\nVerdict: CHANGES-REQUESTED\n"
+                "- [P2] A non-blocking advisory."
+            ),
+        }
+        for family in ("claude", "openai")
+    ] + [
+        {
+            "author": {"login": "scarmani"},
+            "body": f"Tier-4 Human Settlement Authorization\n{head}\n"
+            "admin_squash_merge\nhuman-risk settlement",
+        }
+    ]
+    required = [
+        {**row, "bucket": "pending" if row is quorum_row else "pass"}
+        for row in [quorum_row, *green_rows]
+    ]
+    monkeypatch.setattr(rq, "_gh_json", lambda args: pr)
+    monkeypatch.setattr(
+        rq,
+        "_fetch_required_pr_check_surface",
+        lambda *_args: {"available": True, "checks": required},
+    )
+    monkeypatch.setattr(rq, "_human_settlement_status_creator_verified", lambda **_kw: (True, "ok"))
+    monkeypatch.setattr(rq, "_has_successful_status_context", lambda *_args, **_kw: True)
+    return pr, required
+
+
+def test_build_packet_in_job_all_green_rollup_populates_required_surface_and_fires_valve(
+    in_job_advisory_inputs, tmp_path: Path
+) -> None:
+    packet = _build_packet("6283", repo_override="synaptent/aragora", review_queue_root=tmp_path)
+    assert packet.check_surfaces["required_pr_checks"]["advisory_settle_surface_clear"] is True
+    assert packet.model_review_quorum["status"] == "satisfied"
+    assert packet.model_review_quorum["verdict"] == "operator_advisory_settlement"
+
+
+def test_build_packet_same_pending_quorum_without_job_keeps_valve_blocked(
+    in_job_advisory_inputs, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("GITHUB_JOB")
+    packet = _build_packet("6283", repo_override="synaptent/aragora", review_queue_root=tmp_path)
+    assert packet.check_surfaces["required_pr_checks"]["advisory_settle_surface_clear"] is False
+    assert packet.model_review_quorum["verdict"] == "not_ready_for_settlement"
+
+
+def test_build_packet_in_job_non_quorum_required_failure_keeps_valve_blocked(
+    in_job_advisory_inputs, tmp_path: Path
+) -> None:
+    pr, required = in_job_advisory_inputs
+    pr["statusCheckRollup"][1]["conclusion"] = "FAILURE"
+    required[1].update(bucket="fail", conclusion="FAILURE")
+    packet = _build_packet("6283", repo_override="synaptent/aragora", review_queue_root=tmp_path)
+    assert packet.check_surfaces["required_pr_checks"]["advisory_settle_surface_clear"] is False
+    assert packet.model_review_quorum["verdict"] == "not_ready_for_settlement"
+
+
 def _make_reviewer_output(
     *,
     slot_id: str,
