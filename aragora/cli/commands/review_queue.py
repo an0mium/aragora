@@ -2589,7 +2589,16 @@ def _build_packet(
             check_surfaces=check_surfaces,
         )
     required_pr_check_gate_satisfied = False
-    if not settlement_state_block and not checks_unavailable and (has_failures or has_pending):
+    self_check_excluded = any(
+        _is_current_merge_quorum_self_check(check)
+        for check in _latest_status_check_rollup(pr.get("statusCheckRollup") or [])
+        if isinstance(check, dict)
+    )
+    if (
+        not settlement_state_block
+        and not checks_unavailable
+        and (has_failures or has_pending or self_check_excluded)
+    ):
         required_surface = _fetch_required_pr_check_surface(number, repo_override)
         required_pr_checks = [
             item for item in required_surface.get("checks") or [] if isinstance(item, dict)

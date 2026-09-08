@@ -85,6 +85,8 @@ untouched. The settled verdict is a **distinct, auditable value**
 emits a `::notice::OPERATOR-SETTLED-OVER-ADVISORY` line naming the PR, head,
 tier, and validated families.
 
+Inside the enforcing job, the required-check surface is also fetched whenever its own quorum row was excluded from the rollup summary, keeping the valve reachable when every other check is green.
+
 ## What is preserved
 
 - `[P0]`/`[P1]` model dissent blocks the operator exactly as before.
